@@ -1,0 +1,31 @@
+{
+  "name": "erplms-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-Tenant Institution Operating System (ERP + LMS)",
+  "scripts": {
+    "dev:api": "pnpm --filter @erplms/api dev",
+    "build:api": "pnpm --filter @erplms/api build",
+    "test:api": "pnpm --filter @erplms/api test",
+    "prisma:generate": "pnpm --filter @erplms/api prisma:generate",
+    "prisma:migrate": "pnpm --filter @erplms/api prisma:migrate",
+    "prisma:seed": "pnpm --filter @erplms/api prisma:seed",
+    "prisma:studio": "pnpm --filter @erplms/api prisma:studio"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "bcrypt",
+      "esbuild",
+      "prisma"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

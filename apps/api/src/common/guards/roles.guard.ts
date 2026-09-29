@@ -1,0 +1,55 @@
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Role } from '@erplms/types';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+import { AppRequest } from '../types/request-context';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  private readonly reflector: Reflector;
+
+  constructor(reflector?: Reflector) {
+    this.reflector = reflector || new Reflector();
+  }
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (!requiredRoles || requiredRoles.length === 0) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest<AppRequest>();
+    const user = request.user;
+
+    if (!user) {
+      throw new ForbiddenException('User is not authenticated');
+    }
+
+    // Platform Super Admin bypasses role checks
+    if (user.isSuperAdmin) {
+      return true;
+    }
+
+    if (!user.role) {
+      throw new ForbiddenException('No active organization role assigned');
+    }
+
+    const hasRole = requiredRoles.includes(user.role);
+    if (!hasRole) {
+      throw new ForbiddenException(
+        `Insufficient role permissions. Required: [${requiredRoles.join(', ')}], current: ${user.role}`,
+      );
+    }
+
+    return true;
+  }
+}
