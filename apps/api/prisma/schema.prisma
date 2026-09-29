@@ -13,16 +13,97 @@ datasource db {
 
 enum Role {
   SUPER_ADMIN
+  NCCT_ADMIN
   INSTITUTION_ADMIN
+  COORDINATOR
+  TRAINER
+  TRAINEE
+  EMPLOYER
+  STAFF
   PRINCIPAL
   HOD
   FACULTY
-  STAFF
   STUDENT
   PARENT
   FINANCE
   HR
   LIBRARIAN
+}
+
+enum InstitutionType {
+  NCCT_HQ
+  VAMNICOM
+  RICM
+  ICM
+  PARTNER_INSTITUTION
+  COOPERATIVE_SOCIETY
+}
+
+enum TraineeType {
+  COOPERATIVE_PERSONNEL
+  PACS_MEMBER
+  SHG_MEMBER
+  DAIRY_COOPERATIVE_MEMBER
+  FARMER
+  RURAL_YOUTH
+  OTHER
+}
+
+enum NominationType {
+  SELF
+  INSTITUTIONAL
+}
+
+enum RegistrationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WAITLISTED
+  ENROLLED
+  CANCELLED
+  COMPLETED
+}
+
+enum ProgrammeMode {
+  OFFLINE
+  ONLINE
+  BLENDED
+}
+
+enum ProgrammeStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum HostelAllocationStatus {
+  RESERVED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum LogisticsStatus {
+  PENDING
+  IN_PROGRESS
+  DELIVERED
+  COMPLETED
+}
+
+enum CertificateStatus {
+  ISSUED
+  REVOKED
+}
+
+enum JobApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEWED
+  SELECTED
+  REJECTED
 }
 
 enum OrganizationStatus {
@@ -81,44 +162,67 @@ enum AssessmentAttemptStatus {
 // ----------------------------------------------------
 
 model Organization {
-  id            String             @id @default(uuid())
-  name          String
-  slug          String             @unique
-  domain        String?            @unique
-  logoUrl       String?
-  primaryColor  String?            @default("#1E40AF")
-  timezone      String             @default("Asia/Kolkata")
-  academicYear  String?
-  settings      Json?              @default("{}")
-  status        OrganizationStatus @default(ACTIVE)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id              String             @id @default(uuid())
+  name            String
+  slug            String             @unique
+  domain          String?            @unique
+  logoUrl         String?
+  primaryColor    String?            @default("#1E40AF")
+  timezone        String             @default("Asia/Kolkata")
+  academicYear    String?
+  settings        Json?              @default("{}")
+  status          OrganizationStatus @default(ACTIVE)
+  institutionType InstitutionType    @default(RICM)
+  state           String?
+  district        String?
+  code            String?
+  parentOrgId     String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  memberships       Membership[]
-  featureFlags      FeatureFlag[]
-  subscriptions     Subscription[]
-  departments       Department[]
-  academicYears     AcademicYear[]
-  semesters         Semester[]
-  programmes        Programme[]
-  batches           Batch[]
-  sections          Section[]
-  courses           Course[]
-  studentProfiles   StudentProfile[]
-  facultyProfiles   FacultyProfile[]
-  courseAllocations CourseAllocation[]
+  parentOrg          Organization?      @relation("OrgHierarchy", fields: [parentOrgId], references: [id], onDelete: SetNull)
+  childOrgs          Organization[]     @relation("OrgHierarchy")
+  memberships        Membership[]
+  featureFlags       FeatureFlag[]
+  subscriptions      Subscription[]
+  departments        Department[]
+  academicYears      AcademicYear[]
+  semesters          Semester[]
+  programmes         Programme[]
+  batches            Batch[]
+  sections           Section[]
+  courses            Course[]
+  studentProfiles    StudentProfile[]
+  facultyProfiles    FacultyProfile[]
+  courseAllocations  CourseAllocation[]
   attendanceSessions AttendanceSession[]
-  attendanceRecords AttendanceRecord[]
-  lmsCourses        LmsCourse[]
-  lmsModules        LmsModule[]
-  lmsLessons        LmsLesson[]
-  lmsProgress       LmsProgress[]
-  lmsAssignments    LmsAssignment[]
-  lmsSubmissions    LmsSubmission[]
-  assessments       Assessment[]
+  attendanceRecords  AttendanceRecord[]
+  lmsCourses         LmsCourse[]
+  lmsModules         LmsModule[]
+  lmsLessons         LmsLesson[]
+  lmsProgress        LmsProgress[]
+  lmsAssignments     LmsAssignment[]
+  lmsSubmissions     LmsSubmission[]
+  assessments        Assessment[]
   assessmentAttempts AssessmentAttempt[]
-  gradeResults      GradeResult[]
-  auditLogs         AuditLog[]
+  gradeResults       GradeResult[]
+  documents          Document[]
+  notifications      Notification[]
+  timetableSlots     TimetableSlot[]
+  auditLogs          AuditLog[]
+
+  // NCCT Domain Relations
+  traineeProfiles        TraineeProfile[]
+  trainerProfiles        TrainerProfile[]
+  trainingProgrammes     TrainingProgramme[]
+  programmeBatches       ProgrammeBatch[]
+  programmeRegistrations ProgrammeRegistration[]
+  trainingSessions       TrainingSession[]
+  hostels                Hostel[]
+  hostelAllocations      HostelAllocation[]
+  logisticsItems         LogisticsItem[]
+  certificates           Certificate[]
+  employerProfiles       EmployerProfile[]
 
   @@index([slug])
   @@index([domain])
@@ -170,24 +274,63 @@ model Subscription {
 }
 
 model User {
-  id           String       @id @default(uuid())
-  email        String       @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  phone        String?
-  avatarUrl    String?
-  isSuperAdmin Boolean      @default(false)
-  status       UserStatus   @default(ACTIVE)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id                  String       @id @default(uuid())
+  email               String       @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  phone               String?
+  avatarUrl           String?
+  isSuperAdmin        Boolean      @default(false)
+  status              UserStatus   @default(ACTIVE)
+  failedLoginAttempts Int          @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
-  memberships     Membership[]
-  auditLogs       AuditLog[]
-  studentProfiles StudentProfile[]
-  facultyProfiles FacultyProfile[]
+  memberships         Membership[]
+  auditLogs           AuditLog[]
+  studentProfiles     StudentProfile[]
+  facultyProfiles     FacultyProfile[]
+  traineeProfiles     TraineeProfile[]
+  trainerProfiles     TrainerProfile[]
+  employerProfiles    EmployerProfile[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  documents           Document[]
+  notifications       Notification[]
 
   @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  revoked   Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+  ipAddress String?
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
 }
 
 model Membership {
@@ -297,6 +440,7 @@ model Semester {
   courseAllocations CourseAllocation[]
   assessments    Assessment[]
   gradeResults   GradeResult[]
+  timetableSlots TimetableSlot[]
 
   @@index([organizationId])
   @@index([academicYearId])
@@ -472,11 +616,38 @@ model CourseAllocation {
   semester       Semester     @relation(fields: [semesterId], references: [id], onDelete: Cascade)
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   attendanceSessions AttendanceSession[]
+  timetableSlots TimetableSlot[]
 
   @@unique([organizationId, courseId, sectionId, semesterId, academicYearId])
   @@index([organizationId])
   @@index([facultyId])
   @@index([sectionId])
+}
+
+// ----------------------------------------------------
+// Timetable Module
+// ----------------------------------------------------
+
+model TimetableSlot {
+  id                 String           @id @default(uuid())
+  organizationId     String
+  courseAllocationId String
+  dayOfWeek          Int              // 1 = Mon, 2 = Tue ... 7 = Sun
+  startTime          String           // "09:00"
+  endTime            String           // "10:00"
+  room               String           // "Room 204"
+  semesterId         String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  courseAllocation   CourseAllocation @relation(fields: [courseAllocationId], references: [id], onDelete: Cascade)
+  semester           Semester         @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([courseAllocationId])
+  @@index([dayOfWeek])
+  @@index([room])
 }
 
 // ----------------------------------------------------
@@ -576,7 +747,7 @@ model LmsLesson {
   title          String
   orderIndex     Int          @default(0)
   contentType    String       @default("BLOCKS") // BLOCKS, VIDEO, DOCUMENT
-  contentBlocks  Json         @default("[]") // Array of { id, type: 'TEXT'|'VIDEO'|'QUIZ'|'CODE'|'PDF', content: any }
+  contentBlocks  Json         @default("[]")
   isPublished    Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -585,6 +756,7 @@ model LmsLesson {
   module         LmsModule    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   progress       LmsProgress[]
   assignments    LmsAssignment[]
+  translations   LessonTranslation[]
 
   @@index([organizationId])
   @@index([moduleId])
@@ -669,7 +841,7 @@ model Assessment {
   totalMarks     Float           @default(100)
   passingMarks   Float           @default(40)
   weightage      Float           @default(20)
-  questions      Json            @default("[]") // Structured questions: { id, type, question, options, correct, marks }
+  questions      Json            @default("[]")
   isPublished    Boolean         @default(false)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -689,7 +861,7 @@ model AssessmentAttempt {
   organizationId   String
   assessmentId     String
   studentProfileId String
-  answers          Json                    @default("{}") // Structured answer submissions
+  answers          Json                    @default("{}")
   score            Float?
   status           AssessmentAttemptStatus @default(IN_PROGRESS)
   startedAt        DateTime                @default(now())
@@ -715,7 +887,7 @@ model GradeResult {
   internalMarks    Float          @default(0)
   externalMarks    Float          @default(0)
   totalMarks       Float          @default(0)
-  gradeLetter      String         @default("F") // A+, A, B, C, D, F
+  gradeLetter      String         @default("F")
   gradePoints      Float          @default(0)
   isPublished      Boolean        @default(false)
   createdAt        DateTime       @default(now())
@@ -730,4 +902,504 @@ model GradeResult {
   @@index([organizationId])
   @@index([studentProfileId])
   @@index([courseId])
+}
+
+// ----------------------------------------------------
+// Documents & Object Storage
+// ----------------------------------------------------
+
+model Document {
+  id             String       @id @default(uuid())
+  organizationId String
+  ownerId        String
+  name           String
+  mimeType       String
+  sizeBytes      Int
+  storageKey     String
+  checksum       String?
+  category       String       @default("GENERAL") // ASSIGNMENT, SYLLABUS, CERTIFICATE, IDENTITY, REPORT
+  version        Int          @default(1)
+  isArchived     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner          User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([category])
+}
+
+// ----------------------------------------------------
+// Notifications Module
+// ----------------------------------------------------
+
+model Notification {
+  id             String       @id @default(uuid())
+  organizationId String
+  userId         String
+  title          String
+  message        String
+  type           String       @default("INFO") // INFO, WARNING, SUCCESS, ALERT
+  link           String?
+  read           Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([read])
+}
+
+// ----------------------------------------------------
+// NCCT: Trainees & Rural Youth Domain
+// ----------------------------------------------------
+
+model TraineeProfile {
+  id              String       @id @default(uuid())
+  organizationId  String
+  userId          String
+  traineeCode     String
+  traineeType     TraineeType  @default(RURAL_YOUTH)
+  cooperativeName String?
+  pacsName        String?
+  state           String?
+  district        String?
+  village         String?
+  gender          String?
+  dateOfBirth     DateTime?
+  educationLevel  String?
+  occupation      String?
+  annualIncome    Float?
+  phone           String?
+  aadhaarMasked   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills            TraineeSkill[]
+  registrations     ProgrammeRegistration[]
+  certificates      Certificate[]
+  jobApplications   JobApplication[]
+  outcomes          EmploymentOutcome[]
+  hostelAllocations HostelAllocation[]
+
+  @@unique([organizationId, traineeCode])
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([traineeType])
+  @@index([state])
+  @@index([district])
+}
+
+// ----------------------------------------------------
+// NCCT: Trainers Domain
+// ----------------------------------------------------
+
+model TrainerProfile {
+  id              String   @id @default(uuid())
+  organizationId  String
+  userId          String
+  trainerCode     String
+  designation     String
+  specialization  String
+  qualifications  String?
+  experienceYears Int      @default(0)
+  bio             String?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batches      ProgrammeBatch[]
+  sessions     TrainingSession[]
+
+  @@unique([organizationId, trainerCode])
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+// ----------------------------------------------------
+// NCCT: Programmes & Batches
+// ----------------------------------------------------
+
+model TrainingProgramme {
+  id                  String          @id @default(uuid())
+  organizationId      String
+  code                String
+  title               String
+  description         String
+  category            String
+  targetAudience      String?
+  mode                ProgrammeMode   @default(OFFLINE)
+  durationDays        Int             @default(5)
+  startDate           DateTime
+  endDate             DateTime
+  capacity            Int             @default(50)
+  location            String?
+  eligibilityCriteria String?
+  hostelRequired      Boolean         @default(false)
+  status              ProgrammeStatus @default(UPCOMING)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  batches        ProgrammeBatch[]
+  registrations  ProgrammeRegistration[]
+  certificates   Certificate[]
+  logisticsItems LogisticsItem[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([category])
+  @@index([status])
+}
+
+model ProgrammeBatch {
+  id             String   @id @default(uuid())
+  organizationId String
+  programmeId    String
+  trainerId      String?
+  batchCode      String
+  name           String
+  startDate      DateTime
+  endDate        DateTime
+  capacity       Int      @default(30)
+  status         String   @default("SCHEDULED")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  programme     TrainingProgramme       @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  trainer       TrainerProfile?         @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  registrations ProgrammeRegistration[]
+  sessions      TrainingSession[]
+
+  @@unique([organizationId, programmeId, batchCode])
+  @@index([organizationId])
+  @@index([programmeId])
+}
+
+model ProgrammeRegistration {
+  id                 String             @id @default(uuid())
+  organizationId     String
+  programmeId        String
+  traineeId          String
+  batchId            String?
+  nominationType     NominationType     @default(SELF)
+  nominatingOrgName  String?
+  nominatingOfficer  String?
+  status             RegistrationStatus @default(SUBMITTED)
+  remarks            String?
+  approvedById       String?
+  approvedAt         DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  programme    TrainingProgramme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  trainee      TraineeProfile    @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+  batch        ProgrammeBatch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, programmeId, traineeId])
+  @@index([organizationId])
+  @@index([programmeId])
+  @@index([traineeId])
+  @@index([status])
+}
+
+// ----------------------------------------------------
+// NCCT: Timetable & Training Sessions
+// ----------------------------------------------------
+
+model TrainingSession {
+  id             String   @id @default(uuid())
+  organizationId String
+  batchId        String
+  trainerId      String
+  room           String
+  sessionDate    DateTime
+  startTime      String   // HH:mm
+  endTime        String   // HH:mm
+  topic          String
+  createdAt      DateTime @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  batch        ProgrammeBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  trainer      TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, sessionDate])
+  @@index([trainerId, sessionDate])
+  @@index([room, sessionDate])
+  @@index([batchId, sessionDate])
+}
+
+// ----------------------------------------------------
+// NCCT: Multilingual LMS
+// ----------------------------------------------------
+
+model LessonTranslation {
+  id            String    @id @default(uuid())
+  lessonId      String
+  language      String    // en, hi, te, ta, kn, mr
+  title         String
+  contentBlocks Json      @default("[]")
+  audioUrl      String?
+  videoUrl      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  lesson LmsLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, language])
+  @@index([lessonId])
+}
+
+// ----------------------------------------------------
+// NCCT: Hostel Management
+// ----------------------------------------------------
+
+model Hostel {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  building       String
+  gender         String   @default("ALL")
+  totalRooms     Int      @default(20)
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rooms        HostelRoom[]
+
+  @@index([organizationId])
+}
+
+model HostelRoom {
+  id                 String   @id @default(uuid())
+  hostelId           String
+  roomNumber         String
+  floor              Int      @default(1)
+  bedCapacity        Int      @default(2)
+  occupiedBeds       Int      @default(0)
+  isUnderMaintenance Boolean  @default(false)
+
+  hostel      Hostel             @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  allocations HostelAllocation[]
+
+  @@unique([hostelId, roomNumber])
+  @@index([hostelId])
+}
+
+model HostelAllocation {
+  id             String                 @id @default(uuid())
+  organizationId String
+  roomId         String
+  traineeId      String
+  checkInDate    DateTime
+  checkOutDate   DateTime
+  actualCheckIn  DateTime?
+  actualCheckOut DateTime?
+  status         HostelAllocationStatus @default(RESERVED)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  room         HostelRoom     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  trainee      TraineeProfile @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([roomId])
+  @@index([traineeId])
+}
+
+// ----------------------------------------------------
+// NCCT: Logistics Management
+// ----------------------------------------------------
+
+model LogisticsItem {
+  id             String          @id @default(uuid())
+  organizationId String
+  programmeId    String?
+  category       String          // MEALS, TRAINING_KITS, TRANSPORT, EQUIPMENT, STATIONERY, ACCOMMODATION
+  title          String
+  quantity       Int             @default(1)
+  vendorName     String?
+  cost           Float?
+  status         LogisticsStatus @default(PENDING)
+  remarks        String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  programme    TrainingProgramme? @relation(fields: [programmeId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([programmeId])
+}
+
+// ----------------------------------------------------
+// NCCT: Skills System
+// ----------------------------------------------------
+
+model SkillCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  skills Skill[]
+}
+
+model Skill {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  categoryId  String
+  description String?
+  createdAt   DateTime @default(now())
+
+  category      SkillCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  traineeSkills TraineeSkill[]
+
+  @@index([categoryId])
+}
+
+model TraineeSkill {
+  id         String    @id @default(uuid())
+  traineeId  String
+  skillId    String
+  level      Int       @default(1) // 1: Beginner, 2: Intermediate, 3: Advanced
+  verifiedAt DateTime?
+  verifiedBy String?
+  createdAt  DateTime  @default(now())
+
+  trainee TraineeProfile @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+  skill   Skill          @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([traineeId, skillId])
+  @@index([traineeId])
+  @@index([skillId])
+}
+
+// ----------------------------------------------------
+// NCCT: Digital Certification & QR Verification
+// ----------------------------------------------------
+
+model Certificate {
+  id                 String            @id @default(uuid())
+  organizationId     String
+  traineeId          String
+  programmeId        String?
+  certificateNumber  String            @unique // e.g. NCCT-2026-XXXXX
+  title              String
+  issuedDate         DateTime          @default(now())
+  status             CertificateStatus @default(ISSUED)
+  skillsAcquired     Json              @default("[]")
+  grade              String?
+  pdfUrl             String?
+  qrVerificationUrl  String
+  metadata           Json?             @default("{}")
+  createdAt          DateTime          @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  trainee      TraineeProfile     @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+  programme    TrainingProgramme? @relation(fields: [programmeId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([traineeId])
+  @@index([certificateNumber])
+}
+
+// ----------------------------------------------------
+// NCCT: Employment Exchange & Job Matching
+// ----------------------------------------------------
+
+model EmployerProfile {
+  id             String   @id @default(uuid())
+  organizationId String?
+  userId         String?
+  companyName    String
+  industry       String
+  contactPerson  String
+  contactEmail   String
+  contactPhone   String?
+  website        String?
+  address        String?
+  state          String?
+  district       String?
+  isVerified     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  jobPostings  JobPosting[]
+
+  @@index([organizationId])
+  @@index([companyName])
+}
+
+model JobPosting {
+  id             String    @id @default(uuid())
+  employerId     String
+  title          String
+  description    String
+  requiredSkills Json      @default("[]") // array of skill names or codes
+  location       String
+  vacancies      Int       @default(1)
+  salaryRange    String?
+  status         String    @default("OPEN")
+  deadline       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  employer     EmployerProfile  @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
+
+  @@index([employerId])
+  @@index([status])
+}
+
+model JobApplication {
+  id            String               @id @default(uuid())
+  jobPostingId  String
+  traineeId     String
+  status        JobApplicationStatus @default(APPLIED)
+  matchScore    Float                @default(0) // 0-100%
+  interviewDate DateTime?
+  remarks       String?
+  appliedAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  jobPosting JobPosting     @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  trainee    TraineeProfile @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+
+  @@unique([jobPostingId, traineeId])
+  @@index([jobPostingId])
+  @@index([traineeId])
+}
+
+model EmploymentOutcome {
+  id                 String   @id @default(uuid())
+  traineeId          String
+  employerName       String
+  jobTitle           String
+  placementDate      DateTime @default(now())
+  annualPackage      Float?
+  verificationStatus String   @default("VERIFIED")
+  createdAt          DateTime @default(now())
+
+  trainee TraineeProfile @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+
+  @@index([traineeId])
 }

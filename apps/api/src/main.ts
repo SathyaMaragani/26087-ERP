@@ -1,11 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+
+  // Security Headers
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Allows Swagger UI to run seamlessly
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
 
   // Global prefix
   app.setGlobalPrefix('api/v1', {
@@ -34,20 +43,30 @@ async function bootstrap() {
 
   // OpenAPI / Swagger Documentation
   const config = new DocumentBuilder()
-    .setTitle('ERPLMS - Institution Operating System API')
+    .setTitle('NCCT Digital Ecosystem - Cooperative Training & Rural Skill Development Platform')
     .setDescription(
-      'Multi-Tenant Institution Operating System integrating ERP, LMS, Attendance, SIS, and Real-Time Analytics.',
+      'National multi-tenant operating system integrating Training ERP, Multilingual LMS, Offline Sync, Dynamic QR Attendance, Hostel & Logistics, Skill Taxonomy, Verifiable Digital Certification, and Employment Exchange.',
     )
     .setVersion('1.0.0')
     .addBearerAuth()
-    .addTag('Authentication', 'JWT authentication and active tenant switching')
-    .addTag('Organizations / Institutions', 'Multi-tenant institution management and branding')
-    .addTag('Academic Core (SIS & Academics)', 'Programmes, batches, sections, courses, and allocations')
-    .addTag('Student Information System (SIS)', 'Student profiles, enrollment, and activity timeline')
-    .addTag('Faculty Directory & Allocations', 'Faculty onboarding, profiles, and teaching allocations')
+    .addTag('Authentication', 'JWT/Refresh token rotation, lockout protection, and active tenant switching')
+    .addTag('Organizations / Institutions', 'Multi-tenant institution hierarchy (NCCT, VAMNICOM, RICMs, ICMs)')
+    .addTag('Training Programmes & Batches', 'Training programmes, modules, duration, and batch scheduling')
+    .addTag('Online Registrations & Nominations', 'Self-registration and institutional nomination workflow')
+    .addTag('Trainees & Rural Youth (Centralized Database)', 'Longitudinal profile for cooperative personnel & rural youth')
+    .addTag('Trainers & Faculty Directory', 'Trainer directory, subject-matter expertise, and allocations')
+    .addTag('Timetable & Training Sessions', 'Training sessions with conflict detection (room, trainer, batch)')
+    .addTag('Hostel Management', 'Hostel accommodation, bed allocation, check-in/out, and occupancy tracking')
+    .addTag('Logistics Management (Meals, Kits, Transport)', 'Training kits, meals, equipment, and transport fulfillment')
+    .addTag('Rural & Cooperative Skills Taxonomy', 'Skill categories, competency levels, and verified skill badges')
+    .addTag('Digital Certifications & QR Verification', 'Cryptographic verifiable certificates and public QR verification')
+    .addTag('Employment Exchange & Skill Matching', 'Job postings, algorithmic skill matching (%), and placement tracking')
+    .addTag('Career Counseling & AI Recommendations', 'Controlled career assistant and personalized skill gap advice')
     .addTag('Attendance Management', 'Session scheduling, QR/manual marking, and at-risk monitoring')
-    .addTag('LMS (Learning Management System)', 'Courses, modules, structured content blocks, and assignments')
-    .addTag('Analytics & Dashboards', 'Student, faculty, and executive analytics')
+    .addTag('LMS (Learning Management System)', 'Multilingual courses, modules, lesson translations, and offline sync')
+    .addTag('Notifications & Alerts', 'In-app notification dispatch and unread counters')
+    .addTag('Document & Object Storage Management', 'Document metadata, 25MB limits, and signed access URLs')
+    .addTag('Analytics & Dashboards', 'NCCT National Command Center, institution KPIs, and trainee dashboards')
     .addTag('Audit Logs', 'Immutable audit trail of sensitive operations')
     .addTag('Health & System Diagnostics', 'System health and database readiness')
     .build();

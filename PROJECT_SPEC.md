@@ -1,848 +1,69 @@
-﻿Yes. For this, I would **not build â€œanother college ERP.â€** I would build a **multi-tenant Institution Operating System** where ERP + LMS + communication + analytics are modules on one platform.
+Yes. The existing ERPLMS should now be **re-scoped specifically for the NCCT problem statement**, rather than continuing as a generic college ERP.
 
-The key principle should be:
+The important change is that this is **not primarily a college ERP anymore**. It is a:
 
-> **One core platform â†’ many institutions â†’ configurable modules â†’ isolated data â†’ institution-specific branding/workflows â†’ no code forks.**
+> **National Cooperative Training & Rural Skill Development Platform**
 
-Your earlier BABUHUB direction already fits this very well: institution-first deployment, but architected so the same core can become a reusable product.
+with ERP + LMS + certification + employment exchange + analytics + digital literacy.
 
-# 1. Product vision
-
-Think of the product as:
-
-**ERP + LMS + Student Information System + Faculty Portal + Administration + Analytics**
-
-for colleges, universities, training organizations, and eventually companies.
-
-Instead of:
-
-```text
-College A
- â””â”€â”€ Custom ERP code
-
-College B
- â””â”€â”€ Different ERP code
-
-College C
- â””â”€â”€ Different ERP code
-```
-
-build:
-
-```text
-                    YOUR SaaS PLATFORM
-                           â”‚
-              â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-              â”‚     Multi-Tenant Core   â”‚
-              â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                           â”‚
-        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-        â”‚                  â”‚                  â”‚
-     College A          College B          Company C
-        â”‚                  â”‚                  â”‚
-   Configuration      Configuration      Configuration
-        â”‚                  â”‚                  â”‚
-   Users/Data         Users/Data         Users/Data
-```
-
-The **codebase stays the same**.
-
-Only:
-
-* institution configuration
-* enabled modules
-* roles
-* branding
-* academic structure
-* workflows
-* policies
-* integrations
-
-change.
+The existing backend already has the right foundation—multi-tenancy, RBAC, audit logging, academics, students, attendance, LMS, analytics and health checks—so we should **extend/restructure it rather than throw it away**. 
 
 ---
 
-# 2. The biggest problems with current ERP/LMS products
+# 1. New product structure
 
-This is where I think your opportunity is.
-
-Most ERP/LMS products are feature-heavy but often feel like **software built for administrators rather than humans**.
-
-## Problem 1 â€” Terrible UX
-
-Typical experience:
+I would structure the complete system like this:
 
 ```text
-Login
- â†“
-Dashboard
- â†“
-10 menus
- â†“
-submenu
- â†“
-another submenu
- â†“
-table
- â†“
-click row
- â†“
-new page
+                    NCCT DIGITAL ECOSYSTEM
+                             │
+              ┌──────────────┴──────────────┐
+              │      Multi-Tenant Core      │
+              └──────────────┬──────────────┘
+                             │
+     ┌──────────────┬────────┼─────────┬──────────────┐
+     │              │        │         │              │
+   ERP            LMS      Skills    Careers       Analytics
+     │              │        │         │              │
+     ├─ Programs    ├─Course ├─Skills  ├─Employers   ├─KPIs
+     ├─Nomination   ├─Lessons├─Certs   ├─Jobs        ├─Reports
+     ├─Trainees    ├─Quiz   ├─Verify  ├─Matching    ├─Monitoring
+     ├─Attendance   ├─Tests  └─────────└──────────────┘
+     ├─Timetable    └─Offline
+     ├─Hostel
+     └─Logistics
 ```
 
-Students don't want that.
-
-Your UI should behave more like:
+And the important users become:
 
 ```text
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ Good morning, Sathya                â”‚
-â”‚                                     â”‚
-â”‚ 3 classes today                     â”‚
-â”‚ 2 assignments due                   â”‚
-â”‚ 1 announcement                      â”‚
-â”‚                                     â”‚
-â”‚ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”   â”‚
-â”‚ â”‚ Classesâ”‚ â”‚ Tasks  â”‚ â”‚ Grades â”‚   â”‚
-â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
-â”‚                                     â”‚
-â”‚ Today's schedule                    â”‚
-â”‚ 09:00  DSA                          â”‚
-â”‚ 11:00  ML                           â”‚
-â”‚ 14:00  DBMS                         â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-```
+NCCT Platform Admin
+        │
+        ├── VAMNICOM
+        ├── RICMs
+        ├── ICMs
+        ├── Training Institutions
+        │
+        └── Partner Organizations
+                 │
+                 ├── Trainers
+                 ├── Coordinators
+                 └── Administrators
 
-### Your principle
+Trainees / Rural Youth
+        │
+        ├── Learner
+        ├── Certified Candidate
+        └── Job Seeker
 
-**Every role gets a different dashboard.**
-
-Student â‰  Faculty â‰  HOD â‰  Principal â‰  Admin.
-
----
-
-# 3. Problem 2 â€” Performance and reliability
-
-This is actually one of your biggest opportunities.
-
-You specifically mentioned:
-
-> bugs, pages not loading, errors, slow ERP.
-
-Make **reliability a product feature**.
-
-Your platform should have:
-
-### Loading states
-
-Never:
-
-```text
-blank white page
-```
-
-Instead:
-
-```text
-Loading timetable...
-```
-
-with skeleton UI.
-
-### Error states
-
-Never:
-
-```text
-500 Internal Server Error
-```
-
-Instead:
-
-```text
-Couldn't load your timetable
-
-Your data is safe.
-
-[Retry]
-[Report problem]
-```
-
-### Offline behavior
-
-Important for mobile/college environments.
-
-For example:
-
-```text
-Internet lost
-
-âœ“ Your timetable is still available
-âœ“ Previously loaded courses are available
-âœ“ Attendance drafts saved locally
-
-Syncing when connection returns...
+Employers / Recruiters
 ```
 
 ---
 
-# 4. Problem 3 â€” ERP and LMS are usually disconnected
+# 2. New backend architecture
 
-You should combine them.
-
-For example:
-
-```text
-Student
-   â”‚
-   â”œâ”€â”€ enrolled in course
-   â”‚
-   â”œâ”€â”€ attends class
-   â”‚
-   â”œâ”€â”€ receives material
-   â”‚
-   â”œâ”€â”€ watches lesson
-   â”‚
-   â”œâ”€â”€ submits assignment
-   â”‚
-   â”œâ”€â”€ writes assessment
-   â”‚
-   â”œâ”€â”€ gets marks
-   â”‚
-   â””â”€â”€ attendance + performance â†’ analytics
-```
-
-That creates a much stronger product.
-
----
-
-# 5. Core modules
-
-I would structure the platform into **12 major modules**.
-
-## MODULE 1 â€” Identity & Access
-
-Everything starts here.
-
-```text
-Organization
- â”œâ”€â”€ Departments
- â”œâ”€â”€ Users
- â”œâ”€â”€ Roles
- â””â”€â”€ Permissions
-```
-
-Roles:
-
-### Institution
-
-* Super Admin
-* Institution Admin
-* Principal/Director
-* HOD
-* Faculty
-* Staff
-* Student
-* Parent
-* Finance
-* HR
-* Librarian
-
-### Company
-
-* Organization Admin
-* HR
-* Manager
-* Employee
-* Trainer
-
-Use **RBAC + permissions**, not hardcoded roles.
-
-Example:
-
-```text
-course.create
-course.edit
-course.delete
-course.publish
-
-student.view
-student.edit
-
-attendance.create
-attendance.approve
-
-grade.create
-grade.publish
-```
-
----
-
-# 6. MODULE 2 â€” Student Information System
-
-Student profile should become the **single source of truth**.
-
-```text
-Student
-â”‚
-â”œâ”€â”€ Personal
-â”œâ”€â”€ Contact
-â”œâ”€â”€ Guardian
-â”œâ”€â”€ Academic
-â”œâ”€â”€ Attendance
-â”œâ”€â”€ Courses
-â”œâ”€â”€ Assessments
-â”œâ”€â”€ Grades
-â”œâ”€â”€ Certificates
-â”œâ”€â”€ Fees
-â”œâ”€â”€ Documents
-â”œâ”€â”€ Disciplinary
-â””â”€â”€ Activity Timeline
-```
-
-And importantly:
-
-### Student timeline
-
-```text
-Sep 29
-â”œâ”€ Attended DSA
-â”œâ”€ Submitted Assignment #4
-â”œâ”€ Scored 86% in Quiz
-â”œâ”€ Downloaded ML notes
-â””â”€ Faculty posted feedback
-```
-
-This becomes extremely powerful.
-
----
-
-# 7. MODULE 3 â€” LMS
-
-This should be one of your strongest differentiators.
-
-Your existing content architecture is actually useful here:
-
-```text
-Institution
- â†“
-Course
- â†“
-Module
- â†“
-Topic
- â†“
-Lesson
- â†“
-Lesson Version
- â†“
-Content Blocks
-```
-
-You already had the idea of using **versioned lessons and structured content blocks** rather than hardcoding lesson TSX. That is exactly the right direction for a scalable LMS.
-
-Content blocks:
-
-```text
-Text
-Image
-Video
-PDF
-Code
-Quiz
-Question
-Interactive
-Simulation
-Assignment
-Embed
-File
-Announcement
-```
-
-Then the renderer becomes:
-
-```text
-Lesson JSON
-     â†“
-Universal Renderer
-     â†“
-React UI
-```
-
-So institutions don't need developers to create lessons.
-
----
-
-# 8. MODULE 4 â€” Academic Management
-
-For colleges:
-
-```text
-Academic Year
- â†“
-Semester
- â†“
-Programme
- â†“
-Batch
- â†“
-Section
- â†“
-Course
- â†“
-Faculty
- â†“
-Students
-```
-
-Features:
-
-* timetable
-* course allocation
-* faculty allocation
-* classroom allocation
-* academic calendar
-* syllabus
-* curriculum
-* sections
-* elective selection
-* attendance
-* internal assessments
-* examinations
-* results
-
----
-
-# 9. MODULE 5 â€” Attendance
-
-Don't just make:
-
-```text
-Present / Absent
-```
-
-Make it extensible.
-
-Attendance methods:
-
-```text
-Manual
-QR
-Dynamic QR
-NFC
-Biometric integration
-Face recognition integration
-GPS/geofence
-API integration
-```
-
-Architecture:
-
-```text
-Attendance Service
-       â”‚
-       â”œâ”€â”€ Manual
-       â”œâ”€â”€ QR
-       â”œâ”€â”€ Biometric
-       â”œâ”€â”€ Face
-       â””â”€â”€ External API
-```
-
-The core doesn't care where the attendance came from.
-
----
-
-# 10. MODULE 6 â€” Assessments & Examination
-
-```text
-Question Bank
-      â†“
-Assessment
-      â†“
-Attempt
-      â†“
-Evaluation
-      â†“
-Result
-```
-
-Support:
-
-* MCQ
-* MSQ
-* True/False
-* descriptive
-* coding
-* file upload
-* practical
-* assignments
-* projects
-
-Important architectural decision:
-
-**Attempts should be immutable evidence.**
-
-Don't overwrite:
-
-```text
-attempt.score
-```
-
-without preserving what happened.
-
-Instead:
-
-```text
-AssessmentAttempt
-AttemptAnswer
-Evaluation
-EvaluationEvent
-```
-
-This is important for auditability.
-
----
-
-# 11. MODULE 7 â€” Communication
-
-Central communication system:
-
-```text
-Announcements
-Notifications
-Messages
-Email
-Push
-SMS integration
-```
-
-Notification center:
-
-```text
-ðŸ”” 5 notifications
-
-Assignment due tomorrow
-Attendance below threshold
-New announcement from HOD
-Result published
-Timetable changed
-```
-
-Later:
-
-```text
-WhatsApp
-Telegram
-Email
-SMS
-```
-
-can become integrations.
-
----
-
-# 12. MODULE 8 â€” Finance
-
-For colleges:
-
-```text
-Fee Structure
-Invoices
-Payments
-Scholarships
-Refunds
-Outstanding
-Receipts
-```
-
-For companies:
-
-```text
-Training costs
-Employee training budgets
-Course purchases
-Subscriptions
-```
-
-Don't tightly couple finance to the rest of the system.
-
-Build:
-
-```text
-Billing Service
-```
-
-with clean APIs.
-
----
-
-# 13. MODULE 9 â€” Documents
-
-This should be a major platform capability.
-
-```text
-Documents
-â”œâ”€â”€ Student Documents
-â”œâ”€â”€ Faculty Documents
-â”œâ”€â”€ Certificates
-â”œâ”€â”€ Assignments
-â”œâ”€â”€ Course Materials
-â”œâ”€â”€ Institution Documents
-â””â”€â”€ Reports
-```
-
-Every document should have:
-
-```text
-owner
-tenant
-type
-version
-created_at
-updated_at
-permissions
-storage_location
-checksum
-```
-
-This will make future verification features easier.
-
----
-
-# 14. MODULE 10 â€” Analytics
-
-Don't build meaningless dashboards.
-
-Build actionable analytics.
-
-### Student
-
-```text
-Attendance       91%
-Course progress  73%
-Average score    84%
-Assignments      8/10
-```
-
-### Faculty
-
-```text
-Classes completed
-Attendance trends
-Student performance
-Assignment completion
-```
-
-### HOD
-
-```text
-Department attendance
-Course performance
-Faculty workload
-At-risk students
-```
-
-### Principal
-
-```text
-Total students
-Attendance
-Academic performance
-Fees
-Faculty
-Departments
-Alerts
-```
-
----
-
-# 15. MODULE 11 â€” AI layer
-
-Don't make AI the foundation.
-
-Make it a **platform service**.
-
-Eventually:
-
-```text
-AI Service
-â”‚
-â”œâ”€â”€ Student assistant
-â”œâ”€â”€ Faculty assistant
-â”œâ”€â”€ Course generation
-â”œâ”€â”€ Quiz generation
-â”œâ”€â”€ Summarization
-â”œâ”€â”€ Academic insights
-â”œâ”€â”€ Skill-gap analysis
-â”œâ”€â”€ Document Q&A
-â””â”€â”€ Institutional chatbot
-```
-
-For example:
-
-> "Why is Section C performing poorly in DSA?"
-
-AI could query authorized analytics and respond with evidence.
-
-But **AI must never bypass authorization**.
-
----
-
-# 16. MODULE 12 â€” Super Admin SaaS console
-
-This is what turns it from ERP into SaaS.
-
-You need:
-
-```text
-Platform Admin
-â”‚
-â”œâ”€â”€ Organizations
-â”œâ”€â”€ Plans
-â”œâ”€â”€ Subscriptions
-â”œâ”€â”€ Usage
-â”œâ”€â”€ Feature flags
-â”œâ”€â”€ System health
-â”œâ”€â”€ Audit logs
-â”œâ”€â”€ Support
-â”œâ”€â”€ Integrations
-â””â”€â”€ Platform settings
-```
-
-Example:
-
-```text
-Organizations
-
-KLH University
-â”œâ”€â”€ 8,432 users
-â”œâ”€â”€ 12 departments
-â”œâ”€â”€ 4.2 GB storage
-â”œâ”€â”€ 98.7% API health
-â””â”€â”€ Pro
-
-ABC Training Institute
-â”œâ”€â”€ 1,204 users
-â””â”€â”€ Starter
-```
-
----
-
-# 17. The MOST important architectural decision
-
-## Multi-tenancy
-
-Every major table should belong to an organization.
-
-Instead of:
-
-```text
-students
-courses
-attendance
-```
-
-use:
-
-```text
-organizations
-
-students
- â””â”€â”€ organization_id
-
-courses
- â””â”€â”€ organization_id
-
-attendance
- â””â”€â”€ organization_id
-```
-
-But don't stop there.
-
-Use **composite tenant relationships** wherever appropriate.
-
-For example:
-
-```text
-organization_id
-course_id
-```
-
-must belong to the same organization.
-
-This prevents cross-tenant data leaks.
-
-Your previous architecture direction already called for explicit `institution_id` isolation and composite tenant FKs; keep that principle.
-
----
-
-# 18. Recommended tech stack
-
-I'd use this:
-
-## Frontend
-
-### Next.js
-
-```text
-Next.js
-TypeScript
-React
-Tailwind CSS
-shadcn/ui
-TanStack Query
-Zod
-React Hook Form
-```
-
-Why?
-
-* mature
-* excellent React ecosystem
-* SSR
-* routing
-* caching
-* good developer experience
-* easy deployment
-
----
-
-# 19. Backend
-
-I would **not** put the entire backend inside random Next.js API routes.
-
-Use a proper application architecture.
-
-My preferred starting architecture:
-
-```text
-Next.js
-   â”‚
-   â”‚ HTTPS
-   â†“
-Backend API
-   â”‚
-   â”œâ”€â”€ Auth
-   â”œâ”€â”€ Students
-   â”œâ”€â”€ Courses
-   â”œâ”€â”€ LMS
-   â”œâ”€â”€ Attendance
-   â”œâ”€â”€ Exams
-   â”œâ”€â”€ Notifications
-   â”œâ”€â”€ Documents
-   â””â”€â”€ Analytics
-        â”‚
-        â†“
-    PostgreSQL
-```
-
-For your case:
-
-### Option A
-
-**NestJS + TypeScript**
-
-I'd choose this.
+Keep the current:
 
 ```text
 NestJS
@@ -851,1452 +72,1541 @@ Prisma
 PostgreSQL
 ```
 
-because you're already comfortable with TypeScript/Node.
+architecture and transform the domain modules.
 
----
+The current backend is already a modular monolith and has passed build/testing with 14 tests, so there's no reason to replace it with microservices now. 
 
-# 20. Database
-
-### PostgreSQL
-
-This should be your **system of record**.
-
-Not MongoDB as your primary database.
-
-Not Firebase as the primary database.
-
-Postgres is ideal for:
-
-* relationships
-* transactions
-* constraints
-* reporting
-* financial data
-* academic records
-* attendance
-* RBAC
-* multi-tenancy
-
-Architecture:
+I'd change the backend to:
 
 ```text
-PostgreSQL
-     â”‚
- â”Œâ”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
- â”‚                   â”‚
-Transactional      Analytics
-Data               Queries
-```
+apps/api/src/
 
----
-
-# 21. ORM
-
-I'd use:
-
-**Prisma**
-
-because it works well with your TypeScript stack and gives the code agent a clear schema.
-
-But don't allow the agent to blindly modify schemas.
-
-Create migration rules.
-
-```text
-schema.prisma
-     â†“
-migration
-     â†“
-database
-```
-
-Never:
-
-```text
-db push
-```
-
-against production.
-
----
-
-# 22. Authentication
-
-For the MVP:
-
-### Supabase Auth
-
-or
-
-### Better Auth / Auth.js
-
-Since you want free infrastructure, Supabase is attractive.
-
-Supabase's current free tier includes PostgreSQL, authentication, storage and other services, with limits such as 50,000 MAU, 500 MB database size and 1 GB file storage. ([Supabase][1])
-
-But I'd keep authentication **abstracted behind your own AuthService**.
-
-So:
-
-```text
-AuthService
-     â”‚
-     â””â”€â”€ Supabase Auth
-```
-
-Later:
-
-```text
-AuthService
-     â”œâ”€â”€ Supabase
-     â”œâ”€â”€ Google
-     â”œâ”€â”€ Microsoft
-     â”œâ”€â”€ SAML
-     â””â”€â”€ Enterprise SSO
+├── common/
+│   ├── auth/
+│   ├── guards/
+│   ├── middleware/
+│   ├── filters/
+│   ├── interceptors/
+│   └── decorators/
+│
+├── modules/
+│
+├── platform/
+│
+├── institutions/
+│
+├── users/
+│
+├── programmes/
+│
+├── nominations/
+│
+├── trainees/
+│
+├── trainers/
+│
+├── lms/
+│
+├── attendance/
+│
+├── timetable/
+│
+├── hostel/
+│
+├── logistics/
+│
+├── assessments/
+│
+├── certifications/
+│
+├── skills/
+│
+├── employment/
+│
+├── employers/
+│
+├── counselling/
+│
+├── notifications/
+│
+├── documents/
+│
+├── analytics/
+│
+├── reports/
+│
+├── audit/
+│
+└── health/
 ```
 
 ---
 
-# 23. Deployment â€” free stack
+# 3. Replace "Student" with "Trainee"
 
-For your current stage:
+This is an important domain change.
 
-### Frontend
+The problem statement is about:
 
-**Vercel**
+* cooperative personnel
+* PACS members
+* SHGs
+* dairy cooperative members
+* farmers
+* rural youth
 
-Vercel currently has a $0 Hobby plan with automatic CI/CD, CDN, HTTPS/TLS and DDoS mitigation. ([Vercel][2])
+These aren't necessarily college students.
+
+So the central entity should become:
 
 ```text
-GitHub
-   â†“
-Vercel
-   â†“
-Next.js
+Trainee
 ```
 
-### Backend
-
-You have two reasonable paths.
-
-### Option 1 â€” Cloudflare Workers
-
-Very cheap/free to start.
-
-The current Workers Free plan includes up to **100,000 requests/day** and Cloudflare provides several other free infrastructure components. ([Cloudflare Docs][3])
-
-But NestJS isn't always the most natural fit here.
-
-### Option 2 â€” Render/Railway/etc.
-
-Better developer experience for a conventional NestJS server, but free hosting policies change frequently.
-
-For the **production architecture**, don't design around a specific free hosting provider.
-
-Design:
+with optional classification:
 
 ```text
-Docker container
+TraineeType
+
+COOPERATIVE_PERSONNEL
+PACS_MEMBER
+SHG_MEMBER
+DAIRY_COOPERATIVE_MEMBER
+FARMER
+RURAL_YOUTH
+OTHER
 ```
 
-and deploy that container wherever makes sense.
-
----
-
-# 24. Database choice
-
-Two good approaches:
-
-### Option A â€” Supabase
+Profile:
 
 ```text
-Supabase
-â”œâ”€â”€ PostgreSQL
-â”œâ”€â”€ Auth
-â”œâ”€â”€ Storage
-â””â”€â”€ Realtime
-```
-
-Very convenient for MVP.
-
-### Option B â€” Neon
-
-```text
-Neon PostgreSQL
-```
-
-Neon's current free plan includes up to 10 projects, 0.5 GB/project, 50 CU-hours/project/month and scale-to-zero. ([Neon][4])
-
-For your SaaS architecture, I'd personally start with:
-
-```text
-Vercel
-+
-Supabase
-+
-Cloudflare
-+
-GitHub
-```
-
-because it minimizes infrastructure complexity.
-
----
-
-# 25. File storage
-
-Don't store PDFs/videos/images inside PostgreSQL.
-
-Use:
-
-```text
-Object Storage
-```
-
-For example:
-
-```text
-Cloudflare R2
-```
-
-R2's current free tier includes 10 GB-month storage, 1 million Class A operations and 10 million Class B operations, with no egress charge. ([Cloudflare Docs][3])
-
-Architecture:
-
-```text
-Postgres
-  â”‚
-  â”‚ metadata
-  â†“
-R2
-  â”‚
-  â”œâ”€â”€ PDFs
-  â”œâ”€â”€ images
-  â”œâ”€â”€ videos
-  â”œâ”€â”€ assignments
-  â””â”€â”€ certificates
+Trainee
+├── Personal Information
+├── Contact
+├── Location
+├── Education
+├── Occupation
+├── Cooperative Affiliation
+├── Skills
+├── Training History
+├── Attendance
+├── Assessments
+├── Certifications
+├── Employment Profile
+└── Documents
 ```
 
 ---
 
-# 26. Caching
+# 4. Institution hierarchy
 
-Eventually:
-
-```text
-Redis
-```
-
-But **don't introduce Redis on day one unless needed**.
-
-Start with:
+Instead of only:
 
 ```text
-Postgres
-+
-application caching
-+
-HTTP caching
+College
 ```
 
-Then introduce Redis when actual workload requires it.
+use:
+
+```text
+NCCT
+│
+├── VAMNICOM
+│
+├── RICM
+│
+├── ICM
+│
+└── Partner Training Institution
+```
+
+Every institution is a tenant.
+
+So the existing multi-tenant architecture becomes extremely useful here. The backend already has tenant isolation and organization-level configuration. 
 
 ---
 
-# 27. Search
+# 5. Programme Management
 
-Start with PostgreSQL full-text search.
-
-Later:
+This becomes one of the most important ERP modules.
 
 ```text
-Meilisearch / Typesense / OpenSearch
-```
-
-Don't add Elasticsearch just because "SaaS should use microservices."
-
-That creates unnecessary complexity.
-
----
-
-# 28. Architecture I'd actually build
-
-```text
-                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-                    â”‚      Browser       â”‚
-                    â”‚ Next.js / React    â”‚
-                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                              â”‚
-                         Cloudflare
-                              â”‚
-                              â–¼
-                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-                    â”‚     API Layer      â”‚
-                    â”‚      NestJS        â”‚
-                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                              â”‚
-           â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-           â”‚                  â”‚                  â”‚
-           â–¼                  â–¼                  â–¼
-       Auth/RBAC          Domain Services     Jobs
-           â”‚                  â”‚                  â”‚
-           â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                              â”‚
-                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-                    â”‚    PostgreSQL     â”‚
-                    â”‚  System of Record â”‚
-                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                              â”‚
-              â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-              â–¼               â–¼               â–¼
-           Storage          Search         Analytics
-             R2            Postgres         Views
-```
-
----
-
-# 29. Don't build microservices yet
-
-This is extremely important.
-
-Don't start with:
-
-```text
-student-service
-course-service
-exam-service
-attendance-service
-notification-service
-payment-service
-```
-
-You'll spend your time debugging infrastructure instead of building the product.
-
-Start with:
-
-## Modular monolith
-
-```text
-backend/
-â”œâ”€â”€ auth/
-â”œâ”€â”€ organizations/
-â”œâ”€â”€ users/
-â”œâ”€â”€ students/
-â”œâ”€â”€ faculty/
-â”œâ”€â”€ academics/
-â”œâ”€â”€ courses/
-â”œâ”€â”€ lms/
-â”œâ”€â”€ attendance/
-â”œâ”€â”€ assessments/
-â”œâ”€â”€ examinations/
-â”œâ”€â”€ notifications/
-â”œâ”€â”€ documents/
-â”œâ”€â”€ billing/
-â”œâ”€â”€ analytics/
-â””â”€â”€ audit/
-```
-
-Each module has its own:
-
-```text
-controller
-service
-repository
-DTO
-validation
-tests
-```
-
-Later, if one module needs to become a service:
-
-```text
-Monolith
-   â”‚
-   â”œâ”€â”€ LMS
-   â”œâ”€â”€ Attendance
-   â””â”€â”€ Notifications
-          â†“
-      extract later
-```
-
----
-
-# 30. Reliability architecture
-
-This is where I would make your product different.
-
-Every API request should go through:
-
-```text
-Request
- â†“
-Authentication
- â†“
-Tenant resolution
- â†“
-Authorization
- â†“
-Validation
- â†“
-Business logic
- â†“
-Database transaction
- â†“
-Audit event
- â†“
-Response
-```
-
-Never:
-
-```text
-Request â†’ controller â†’ database
-```
-
-with random logic everywhere.
-
----
-
-# 31. API standards
-
-Every API should have predictable responses.
-
-Success:
-
-```json
-{
-  "success": true,
-  "data": {}
-}
-```
-
-Error:
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "STUDENT_NOT_FOUND",
-    "message": "Student could not be found",
-    "requestId": "req_123"
-  }
-}
-```
-
-This makes frontend error handling much easier.
-
----
-
-# 32. Request IDs
-
-Every request:
-
-```text
-x-request-id
+Training Programme
+│
+├── Title
+├── Description
+├── Category
+├── Target Audience
+├── Institution
+├── Location
+├── Start Date
+├── End Date
+├── Capacity
+├── Eligibility
+├── Trainers
+├── Modules
+├── Assessment
+├── Certification
+├── Hostel Required
+└── Status
 ```
 
 Example:
 
 ```text
-REQ-8F2A91
-```
+Digital Literacy for PACS Members
 
-If a college administrator says:
+Target:
+PACS Members
 
-> "Attendance isn't loading."
+Duration:
+5 Days
 
-You can search:
+Mode:
+Blended
 
-```text
-REQ-8F2A91
-```
+Capacity:
+100
 
-and trace the problem.
+Location:
+RICM Hyderabad
 
----
-
-# 33. Audit logging
-
-Critical actions:
-
-```text
-LOGIN
-STUDENT_CREATED
-STUDENT_UPDATED
-GRADE_CREATED
-GRADE_UPDATED
-GRADE_PUBLISHED
-ATTENDANCE_MODIFIED
-PAYMENT_CREATED
-DOCUMENT_UPLOADED
-ROLE_CHANGED
-```
-
-should produce audit events.
-
-Example:
-
-```text
-WHO
-WHAT
-WHEN
-WHERE
-TENANT
-OLD VALUE
-NEW VALUE
-IP
-REQUEST ID
+Certification:
+NCCT Digital Literacy Certificate
 ```
 
 ---
 
-# 34. Database protection
+# 6. Online registration + nomination
 
-Use:
+This is explicitly required by the problem statement.
 
-### Foreign keys
-
-### Unique constraints
-
-### Check constraints
-
-### Transactions
-
-### Indexes
-
-### Soft deletion where appropriate
-
-### Immutable records where required
-
-For example:
+Build:
 
 ```text
-attendance
+Programme
+      ↓
+Registration
+      ↓
+Eligibility
+      ↓
+Nomination
+      ↓
+Approval
+      ↓
+Enrollment
 ```
 
-should not simply be:
+Statuses:
 
 ```text
-UPDATE attendance
-SET present = false
+DRAFT
+SUBMITTED
+UNDER_REVIEW
+APPROVED
+REJECTED
+WAITLISTED
+ENROLLED
+CANCELLED
+COMPLETED
 ```
 
-without recording who changed it.
+This should support both:
+
+### Self-registration
+
+A rural youth registers themselves.
+
+### Institutional nomination
+
+A cooperative/institution nominates people.
 
 ---
 
-# 35. Testing strategy
+# 7. Programme workflow
 
-This is probably the **most important part** if your goal is:
-
-> "backend needs to be solid, no errors/issues."
-
-Don't rely on the code agent saying:
-
-> "Implementation complete."
-
-Build a test pyramid.
+A coordinator should see:
 
 ```text
-                  E2E
-                 /   \
-              API tests
-             /         \
-        Integration tests
-       /                 \
-         Unit tests
+PROGRAMME
+
+Applications       248
+Approved           180
+Waitlisted          32
+Rejected            36
+
+Capacity           200
+Remaining           20
 ```
 
-### Unit tests
+And:
 
 ```text
-RBAC
-attendance calculations
-grade calculation
-fee calculation
-tenant resolution
+[Review Applications]
+[Create Batch]
+[Assign Trainers]
+[Create Timetable]
+[Assign Hostel]
 ```
 
-### Integration tests
+---
+
+# 8. LMS redesign
+
+The LMS should be central.
 
 ```text
-API â†’ PostgreSQL
-```
-
-### E2E
-
-Use:
-
-**Playwright**
-
-Test:
-
-```text
-Login
- â†“
-Student dashboard
- â†“
 Course
- â†“
+│
+├── Module
+│   ├── Lesson
+│   ├── Video
+│   ├── PDF
+│   ├── Interactive
+│   └── Quiz
+│
+├── Assignment
+├── Assessment
+└── Certification
+```
+
+But add **multilingual learning**.
+
+For every lesson:
+
+```text
 Lesson
- â†“
-Quiz
- â†“
-Submit
- â†“
-Result
+├── English
+├── Hindi
+├── Telugu
+├── Tamil
+├── Kannada
+├── Marathi
+└── Other
+```
+
+Don't duplicate the whole lesson object.
+
+Use:
+
+```text
+Lesson
+LessonTranslation
+```
+
+Example:
+
+```text
+lesson_id: 123
+
+language: en
+title: Digital Payments
+
+language: hi
+title: डिजिटल भुगतान
+
+language: te
+title: డిజిటల్ చెల్లింపులు
 ```
 
 ---
 
-# 36. Tenant isolation testing
+# 9. Rural/offline-first LMS
 
-This deserves dedicated tests.
+This should be a major differentiator.
+
+Frontend should be a **PWA**.
+
+```text
+Browser
+ ↓
+Service Worker
+ ↓
+IndexedDB
+```
+
+Learner can download:
+
+```text
+Course
+├── Videos
+├── PDFs
+├── Lessons
+├── Quizzes
+└── Assessments
+```
+
+Then:
+
+```text
+Internet
+   ↓
+Sync
+   ↓
+Server
+```
+
+For example:
+
+```text
+📡 Offline
+
+Your downloaded courses are available.
+
+3 lessons completed offline.
+
+        [Sync Now]
+```
+
+This directly addresses the rural/digital-access component of the problem.
+
+---
+
+# 10. Attendance
+
+Build two primary methods.
+
+## QR
+
+```text
+Trainer
+ ↓
+Generate dynamic QR
+ ↓
+Trainees scan
+ ↓
+Attendance recorded
+```
+
+QR should be:
+
+* time limited
+* programme/session specific
+* institution specific
+* preferably rotating
+
+## Face recognition
+
+Don't put face recognition directly inside the main ERP server.
+
+Use:
+
+```text
+Attendance Service
+        │
+        ├── QR Provider
+        │
+        └── Face Recognition Provider
+```
+
+Store the minimum necessary biometric information and provide explicit consent/retention controls.
+
+---
+
+# 11. Timetable
+
+New module:
+
+```text
+Timetable
+```
+
+Entities:
+
+```text
+TrainingSession
+Room
+Trainer
+ProgrammeBatch
+Schedule
+```
+
+Conflict detection:
+
+```text
+Trainer conflict       ❌
+Room conflict          ❌
+Batch conflict         ❌
+Time overlap           ❌
+```
+
+---
+
+# 12. Hostel management
+
+This is missing from the current backend and is explicitly required.
+
+Structure:
+
+```text
+Hostel
+├── Building
+├── Floor
+├── Room
+├── Bed
+└── Allocation
+```
+
+Workflow:
+
+```text
+Trainee
+ ↓
+Hostel eligibility
+ ↓
+Room allocation
+ ↓
+Check-in
+ ↓
+Stay
+ ↓
+Check-out
+```
+
+Dashboard:
+
+```text
+Hostel
+
+Rooms          80
+Occupied       67
+Available      13
+Maintenance     4
+```
+
+---
+
+# 13. Logistics
+
+For training programmes:
+
+```text
+Logistics
+├── Transport
+├── Meals
+├── Training materials
+├── Equipment
+├── Rooms
+├── Events
+└── Vendors
+```
+
+For example:
+
+```text
+Programme #2026-042
+
+Accommodation ✓
+Meals ✓
+Projector ✓
+Training kits ✓
+Transport pending ⚠
+```
+
+---
+
+# 14. Skill system
+
+This is where the platform moves beyond a normal ERP.
 
 Create:
 
 ```text
-Tenant A
-Tenant B
+Skill
+SkillCategory
+SkillLevel
+TraineeSkill
+SkillAssessment
 ```
-
-Then test:
-
-```text
-User A â†’ can access A
-
-User A â†’ cannot access B
-
-Admin A â†’ cannot access B
-
-API request forged with B ID â†’ rejected
-```
-
-This should run automatically in CI.
-
----
-
-# 37. CI/CD
-
-GitHub:
-
-```text
-git push
-   â†“
-GitHub Actions
-   â†“
-Lint
-   â†“
-Typecheck
-   â†“
-Unit tests
-   â†“
-Integration tests
-   â†“
-Build
-   â†“
-E2E
-   â†“
-Deploy
-```
-
-If any stage fails:
-
-```text
-âŒ deployment blocked
-```
-
-This is much better than allowing the code agent to continuously push broken code.
-
----
-
-# 38. Code-agent rules
-
-This is **very important for your project**.
-
-Don't tell the coding agent:
-
-> Build the ERP.
-
-It will create a giant mess.
-
-Give it strict rules.
-
-### Rule 1
-
-Never modify database schema without migration.
-
-### Rule 2
-
-Never bypass service/repository layers.
-
-### Rule 3
-
-Never access another tenant's data.
-
-### Rule 4
-
-Every endpoint requires authorization.
-
-### Rule 5
-
-Every API has validation.
-
-### Rule 6
-
-Every feature requires tests.
-
-### Rule 7
-
-Never leave TODO implementation placeholders.
-
-### Rule 8
-
-Never silently swallow errors.
-
-### Rule 9
-
-Never use `any` unless explicitly justified.
-
-### Rule 10
-
-Every UI page needs:
-
-```text
-loading
-empty
-error
-success
-```
-
-states.
-
----
-
-# 39. Feature flags
-
-This is critical for SaaS.
 
 Example:
 
 ```text
-organization_features
-
-attendance = true
-lms = true
-finance = false
-ai = false
-hostel = true
+Digital Payments
+    Level 1
+    Level 2
+    Level 3
 ```
 
-Then College A can have:
+Trainee:
 
 ```text
-LMS
-Attendance
-Exams
-```
+Sathya
 
-while College B has:
-
-```text
-LMS
-Attendance
-Exams
-Finance
-Hostel
-Transport
-```
-
-without different codebases.
-
----
-
-# 40. Institution customization
-
-Each organization should have configuration:
-
-```json
-{
-  "name": "ABC University",
-  "logo": "...",
-  "primaryColor": "...",
-  "timezone": "Asia/Kolkata",
-  "academicYear": "2026-27",
-  "attendancePolicy": {
-    "minimum": 75
-  }
-}
-```
-
-Then your frontend automatically becomes:
-
-```text
-ABC University ERP
-```
-
-instead of your platform branding.
-
----
-
-# 41. Branding / white-label
-
-Eventually:
-
-```text
-erp.yourproduct.com
-```
-
-and:
-
-```text
-erp.collegeA.edu
-```
-
-both point to the same platform.
-
-The tenant is resolved from:
-
-```text
-domain
-   â†“
-organization
-   â†“
-configuration
-   â†“
-UI
+Skills
+────────────────────
+Digital Literacy       Level 2
+Financial Literacy     Level 1
+Cooperative Management Level 2
+Digital Marketing      Level 1
 ```
 
 ---
 
-# 42. SaaS database model
+# 15. Certification
 
-The fundamental hierarchy should be something like:
+This should be a major module.
 
 ```text
-Platform
-â”‚
-â””â”€â”€ Organization
-     â”‚
-     â”œâ”€â”€ Departments
-     â”œâ”€â”€ Academic Years
-     â”œâ”€â”€ Programmes
-     â”œâ”€â”€ Courses
-     â”œâ”€â”€ Users
-     â”œâ”€â”€ Students
-     â”œâ”€â”€ Faculty
-     â”œâ”€â”€ LMS
-     â”œâ”€â”€ Attendance
-     â”œâ”€â”€ Assessments
-     â”œâ”€â”€ Finance
-     â””â”€â”€ Documents
+Training
+   ↓
+Assessment
+   ↓
+Pass
+   ↓
+Certificate
+   ↓
+Digital Certificate
+```
+
+Certificate:
+
+```text
+NCCT
+Certificate ID: NCCT-2026-8F32A
+Name
+Programme
+Skills
+Date
+Institution
+QR Verification
+```
+
+Anyone can scan:
+
+```text
+verify.ncct-platform...
+```
+
+and see:
+
+```text
+✓ VALID CERTIFICATE
+
+Issued to:
+XXXXX
+
+Programme:
+Digital Cooperative Management
+
+Issued:
+29 Sep 2026
+
+Institution:
+RICM
 ```
 
 ---
 
-# 43. Pricing architecture â€” even if free initially
+# 16. Certificate repository
 
-Design the product as if pricing exists.
-
-For example:
-
-### Free
+Each trainee gets:
 
 ```text
-â‰¤ 100 users
-Core LMS
-Basic attendance
-Basic analytics
+My Certifications
+
+┌──────────────────────────┐
+│ Digital Literacy         │
+│ NCCT                     │
+│ 2026                     │
+│                          │
+│ [View] [Download] [Share]│
+└──────────────────────────┘
 ```
 
-### Institution
-
-```text
-500â€“5,000 users
-Full ERP
-Advanced analytics
-Custom branding
-```
-
-### Enterprise
-
-```text
-10,000+
-SSO
-Dedicated infrastructure
-Advanced integrations
-SLA
-```
-
-Don't implement payment immediately.
-
-But create:
-
-```text
-subscription
-plan
-feature_entitlement
-usage
-```
-
-tables.
+Employers can verify certificates without seeing the trainee's entire profile.
 
 ---
 
-# 44. What NOT to build initially
+# 17. Employment exchange
 
-This is equally important.
+This is a **major differentiator** from traditional LMS products.
 
-Don't start with:
+Create:
 
-âŒ hostel
+```text
+Employer
+Job
+Application
+CandidateProfile
+SkillMatch
+Interview
+EmploymentOutcome
+```
 
-âŒ transport
+Employer dashboard:
 
-âŒ payroll
+```text
+JOB: Field Digital Assistant
 
-âŒ library
+Required Skills
+✓ Digital Literacy
+✓ Communication
+✓ Cooperative Operations
 
-âŒ AI chatbot
-
-âŒ mobile app
-
-âŒ biometric integration
-
-âŒ payment gateway
-
-âŒ 50 dashboards
-
-âŒ microservices
-
-âŒ Kubernetes
-
-âŒ complicated event infrastructure
-
-Build the core first.
+Candidates
+────────────────
+94 candidates
+31 matching
+12 certified
+```
 
 ---
 
-# 45. MVP
+# 18. Skill-based candidate matching
 
-Your first version should be:
-
-## Platform
+Example:
 
 ```text
-Multi-tenancy
+Job Requirements
+       ↓
+Skill Engine
+       ↓
+Trainee Skills
+       ↓
+Matching Score
+```
+
+But don't start with AI.
+
+Start deterministic:
+
+```text
+required skill = 5
+candidate has = 4
+
+match = 80%
+```
+
+Then AI can improve matching later.
+
+---
+
+# 19. Career counseling chatbot
+
+Add:
+
+```text
+Career Assistant
+```
+
+It should answer things like:
+
+> What jobs can I apply for after this training?
+
+> What skills should I learn next?
+
+> Which certificates do I have?
+
+> What opportunities are available near me?
+
+Architecture:
+
+```text
+Chatbot
+   ↓
+Permission layer
+   ↓
+Career knowledge
+   ↓
+Trainee profile
+   ↓
+Skills
+   ↓
+Jobs
+```
+
+**Never allow the LLM to directly query arbitrary database records.**
+
+Use controlled tools/APIs.
+
+---
+
+# 20. Analytics
+
+This is another major part of the NCCT problem.
+
+### Programme dashboard
+
+```text
+Programmes
+1,248
+
+Trainees
+48,392
+
+Completion
+87%
+
+Certification
+76%
+
+Employment linkage
+31%
+
+Digital learning
+72%
+```
+
+### Regional analytics
+
+```text
+State
+ ↓
+District
+ ↓
+Institution
+ ↓
+Programme
+ ↓
+Trainees
+```
+
+This enables future outreach planning.
+
+---
+
+# 21. Centralized trainee database
+
+The problem statement explicitly asks for this.
+
+Create a longitudinal profile:
+
+```text
+Trainee
+│
+├── Registration
+├── Programmes
+├── Attendance
+├── Learning
+├── Assessments
+├── Skills
+├── Certificates
+├── Employment
+└── Career progression
+```
+
+This becomes the platform's most valuable dataset.
+
+---
+
+# 22. Frontend structure
+
+I'd create:
+
+```text
+apps/web/src/
+
+├── app/
+│
+├── components/
+│
+├── features/
+│   ├── auth/
+│   ├── dashboard/
+│   ├── programmes/
+│   ├── registration/
+│   ├── trainees/
+│   ├── trainers/
+│   ├── lms/
+│   ├── attendance/
+│   ├── timetable/
+│   ├── hostel/
+│   ├── logistics/
+│   ├── assessments/
+│   ├── certificates/
+│   ├── skills/
+│   ├── employment/
+│   ├── counselling/
+│   └── analytics/
+│
+├── lib/
+├── api/
+├── hooks/
+├── stores/
+└── offline/
+```
+
+---
+
+# 23. Different dashboards
+
+This is critical.
+
+## NCCT Admin
+
+```text
+┌──────────────────────────────────────┐
+│ NCCT Command Center                  │
+├──────────────────────────────────────┤
+│                                      │
+│ 48,392 Trainees   1,248 Programmes   │
+│  312 Institutions  87% Completion    │
+│                                      │
+│ Training Activity                    │
+│ ────────────────────────────────     │
+│                                      │
+│ State Performance                    │
+│ Telangana █████████                  │
+│ Maharashtra ███████                  │
+│ Karnataka ██████                     │
+│                                      │
+│ Employment Linkage                   │
+│ 12,432 candidates                    │
+└──────────────────────────────────────┘
+```
+
+---
+
+# 24. Institution dashboard
+
+```text
+Today's Operations
+
+Active programmes      14
+Trainees               482
+Sessions today          32
+Attendance              91%
+Hostel occupancy        78%
+
+⚠ 12 trainees below attendance threshold
+⚠ 4 pending nominations
+✓ 2 programmes completed
+```
+
+---
+
+# 25. Trainer dashboard
+
+```text
+Good morning, Trainer
+
+Today's Sessions
+
+09:00
+Digital Literacy
+Batch A
+42 trainees
+
+11:00
+Financial Literacy
+Batch B
+38 trainees
+
+[Mark Attendance]
+[Open Course]
+[Assessment]
+```
+
+---
+
+# 26. Trainee dashboard
+
+This should be extremely simple.
+
+```text
+Good morning 👋
+
+Your Learning
+
+Digital Literacy
+████████████░ 82%
+
+Cooperative Management
+████████░░░░ 61%
+
+Today's Learning
+────────────────────
+▶ Digital Payments
+▶ Quiz: Financial Literacy
+
+Certificates
+🏆 3 earned
+
+Career
+💼 12 matching opportunities
+```
+
+---
+
+# 27. Employer dashboard
+
+```text
+Employer Portal
+
+Active Jobs          8
+Applications        214
+Shortlisted          32
+Interviews           11
+
+[Post Job]
+
+Top Matching Candidates
+
+Candidate     Skills     Certificate
+────────────  ─────────  ───────────
+Candidate A   94%        ✓
+Candidate B   89%        ✓
+Candidate C   87%        ✓
+```
+
+---
+
+# 28. Mobile-first
+
+The trainee experience should be designed mobile-first.
+
+Admin:
+
+```text
+Desktop
+```
+
+Trainee:
+
+```text
+Mobile / PWA
+```
+
+Trainer:
+
+```text
+Mobile + tablet
+```
+
+Employer:
+
+```text
+Desktop + mobile responsive
+```
+
+---
+
+# 29. Offline architecture
+
+Frontend:
+
+```text
+React / Next.js
+      ↓
+Service Worker
+      ↓
+IndexedDB
+      ↓
+Sync Queue
+```
+
+Example:
+
+```text
+Offline action
+
+completeLesson()
+      ↓
+IndexedDB
+      ↓
+syncQueue
+      ↓
+Internet restored
+      ↓
+POST /sync
+      ↓
+Server
+```
+
+The backend needs idempotency so that syncing twice doesn't duplicate attendance/submissions.
+
+---
+
+# 30. Database redesign
+
+The current 22-model database needs to expand substantially. The current schema is a foundation, not the final NCCT schema. 
+
+I'd organize it into domains:
+
+```text
+organizations
+users
+roles
+permissions
+
+trainees
+trainers
+employers
+
+programmes
+programme_batches
+registrations
+nominations
+enrollments
+
+courses
+modules
+lessons
+lesson_translations
+content_blocks
+
+attendance_sessions
+attendance_records
+
+timetables
+rooms
+
+hostels
+hostel_rooms
+hostel_allocations
+
+logistics
+
+assessments
+questions
+attempts
+answers
+grades
+
+skills
+trainee_skills
+skill_assessments
+
+certificates
+certificate_verifications
+
+jobs
+applications
+candidate_matches
+employment_outcomes
+
+career_conversations
+
+notifications
+documents
+
+analytics
+audit_logs
+```
+
+Every institution-scoped entity should have:
+
+```text
+organization_id
+```
+
+where appropriate.
+
+---
+
+# 31. API structure
+
+The API should eventually look like:
+
+```text
+/api/v1
+
+/auth
+
+/organizations
+
+/programmes
+/programmes/:id/registrations
+/programmes/:id/nominations
+/programmes/:id/batches
+
+/trainees
+/trainees/:id/skills
+/trainees/:id/certificates
+/trainees/:id/programmes
+
+/trainers
+
+/lms
+/lms/courses
+/lms/modules
+/lms/lessons
+/lms/assessments
+
+/attendance
+
+/timetable
+
+/hostels
+
+/logistics
+
+/skills
+
+/certifications
+/certifications/:id/verify
+
+/employers
+/jobs
+/jobs/:id/applications
+
+/career
+
+/analytics
+
+/notifications
+
+/documents
+
+/audit
+```
+
+---
+
+# 32. Backend reliability requirements
+
+Since you specifically want the backend to be extremely solid, the new implementation should enforce:
+
+```text
+Every endpoint
+       ↓
+Authentication
+       ↓
+Tenant resolution
+       ↓
+Permission
+       ↓
+Validation
+       ↓
+Service
+       ↓
+Transaction
+       ↓
+Audit
+       ↓
+Response
+```
+
+And:
+
+```text
+Every request
+       ↓
+requestId
+       ↓
+structured logs
+       ↓
+trace
+```
+
+The existing backend already has request IDs, standardized responses and centralized exception handling, so preserve those patterns. 
+
+---
+
+# 33. Testing requirements
+
+The current 14 tests are only the beginning. 
+
+For this problem, add tests for:
+
+```text
 Authentication
 RBAC
-Organization management
-Feature flags
-Audit logs
+Tenant isolation
+Programme registration
+Nomination approval
+Trainee enrollment
+Attendance
+QR attendance
+LMS
+Offline synchronization
+Assessment
+Certification
+Certificate verification
+Employer access
+Job applications
+Skill matching
+Notifications
+Hostel allocation
+Timetable conflicts
 ```
 
-## ERP
+And especially:
 
 ```text
-Students
-Faculty
-Departments
-Courses
-Academic year
-Sections
-Timetable
-Attendance
+Institution A
+      ↓
+cannot access
+      ↓
+Institution B
 ```
 
-## LMS
+for **every module**.
+
+---
+
+# 34. Final architecture
+
+The finished system should look like:
+
+```text
+                         NCCT PLATFORM
+                              │
+                    ┌─────────▼─────────┐
+                    │   API Gateway     │
+                    └─────────┬─────────┘
+                              │
+                     ┌────────▼────────┐
+                     │ NestJS Backend  │
+                     └────────┬────────┘
+                              │
+      ┌───────────────────────┼────────────────────────┐
+      │                       │                        │
+      ▼                       ▼                        ▼
+ PostgreSQL               Object Storage          Job Queue
+      │                       │                        │
+      │                       │                        │
+      ├── ERP                 ├── Videos              ├── Emails
+      ├── LMS                 ├── PDFs                ├── Reports
+      ├── Trainees            ├── Certificates        ├── Notifications
+      ├── Skills              └── Documents           └── Sync
+      ├── Employment
+      └── Analytics
+                             
+                         FRONTEND
+                              │
+                 ┌────────────┴────────────┐
+                 │                         │
+              Web/PWA                   Mobile
+                 │                         │
+                 └────────────┬────────────┘
+                              │
+                         Offline Layer
+                              │
+                           IndexedDB
+```
+
+---
+
+# 35. What the code agent should build
+
+I would **not tell the agent "build the whole ERP"**.
+
+Give it this sequence.
+
+### Phase 1 — Rebrand/restructure domain
+
+```text
+Student → Trainee
+College → Institution
+Course → Training Programme / LMS Course
+```
+
+Add:
+
+```text
+NCCT
+VAMNICOM
+RICM
+ICM
+Cooperative
+Rural Youth
+Employer
+```
+
+---
+
+### Phase 2 — Training ERP
+
+Build:
+
+```text
+Programme
+Registration
+Nomination
+Approval
+Batch
+Trainer
+Timetable
+Attendance
+Hostel
+Logistics
+```
+
+---
+
+### Phase 3 — LMS
+
+Build:
 
 ```text
 Courses
 Modules
 Lessons
-Content blocks
-Assignments
-Quizzes
-Progress
-```
-
-## Analytics
-
-```text
-Student dashboard
-Faculty dashboard
-Admin dashboard
-```
-
-## Infrastructure
-
-```text
-PostgreSQL
-Storage
-Logging
-Error handling
-Testing
-CI/CD
-```
-
-That's enough.
-
----
-
-# 46. Development roadmap
-
-I'd give your code agent these phases.
-
-### Phase 0 â€” Architecture
-
-```text
-Repository
-Docker
-Environment
-Database
-CI
-Testing
-Coding standards
-```
-
-### Phase 1 â€” SaaS Core
-
-```text
-Organizations
-Users
-RBAC
-Tenant isolation
-Auth
-Audit
-Feature flags
-```
-
-### Phase 2 â€” Academic Core
-
-```text
-Students
-Faculty
-Departments
-Courses
-Programmes
-Academic years
-Sections
-```
-
-### Phase 3 â€” LMS
-
-```text
-Course
-Module
-Topic
-Lesson
-Content blocks
-Assignments
-Quiz
-Progress
-```
-
-### Phase 4 â€” Attendance
-
-```text
-Sessions
-Attendance
-Reports
-Policies
-```
-
-### Phase 5 â€” Assessments
-
-```text
-Question bank
+Multilingual content
+Interactive content
 Assessments
-Attempts
-Evaluation
-Grades
-Results
-```
-
-### Phase 6 â€” Dashboards
-
-```text
-Student
-Faculty
-HOD
-Admin
-Platform admin
-```
-
-### Phase 7 â€” Reliability
-
-```text
-Monitoring
-Audit
-Error tracking
-Performance
-Load testing
-E2E
-Security tests
-```
-
-### Phase 8 â€” SaaS
-
-```text
-Plans
-Usage
-Feature entitlements
-White-label
-Custom domains
+Progress
+Offline learning
 ```
 
 ---
 
-# 47. The UI philosophy
+### Phase 4 — Skills + Certification
 
-I'd make this one of your biggest differentiators.
-
-Instead of traditional ERP:
+Build:
 
 ```text
-Sidebar
-100 menu items
-tables everywhere
-```
-
-Use:
-
-### Command center
-
-```text
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ Search anything...                 âŒ˜ K â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚                                         â”‚
-â”‚ Good morning, Sathya                    â”‚
-â”‚                                         â”‚
-â”‚ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”‚
-â”‚ â”‚ 91%    â”‚ â”‚ 84%    â”‚ â”‚ 3 tasks   â”‚   â”‚
-â”‚ â”‚Attend. â”‚ â”‚Average â”‚ â”‚ Pending   â”‚   â”‚
-â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
-â”‚                                         â”‚
-â”‚ TODAY                                   â”‚
-â”‚                                         â”‚
-â”‚ 09:00  Data Structures      Room 204    â”‚
-â”‚ 11:00  Machine Learning     Lab 3       â”‚
-â”‚ 14:00  Database Systems     Room 110    â”‚
-â”‚                                         â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-```
-
-Use:
-
-* command palette
-* keyboard shortcuts
-* global search
-* contextual actions
-* responsive layout
-* skeleton loading
-* optimistic UI where safe
-* toast notifications
-* clear empty states
-
----
-
-# 48. Design system
-
-Create the design system **before** building 100 pages.
-
-```text
-Design Tokens
-â”‚
-â”œâ”€â”€ Colors
-â”œâ”€â”€ Typography
-â”œâ”€â”€ Spacing
-â”œâ”€â”€ Radius
-â”œâ”€â”€ Shadows
-â””â”€â”€ Motion
-```
-
-Components:
-
-```text
-Button
-Input
-Select
-Table
-DataTable
-Modal
-Drawer
-Tabs
-Card
-Badge
-Toast
-Dropdown
-Command
-Calendar
-Chart
-FileUpload
-Timeline
-```
-
-This will massively improve consistency.
-
----
-
-# 49. The codebase structure
-
-I'd give the agent something close to:
-
-```text
-erp-platform/
-â”‚
-â”œâ”€â”€ apps/
-â”‚   â”œâ”€â”€ web/
-â”‚   â””â”€â”€ api/
-â”‚
-â”œâ”€â”€ packages/
-â”‚   â”œâ”€â”€ ui/
-â”‚   â”œâ”€â”€ config/
-â”‚   â”œâ”€â”€ types/
-â”‚   â”œâ”€â”€ validation/
-â”‚   â””â”€â”€ utils/
-â”‚
-â”œâ”€â”€ database/
-â”‚   â”œâ”€â”€ migrations/
-â”‚   â”œâ”€â”€ seeds/
-â”‚   â””â”€â”€ fixtures/
-â”‚
-â”œâ”€â”€ tests/
-â”‚   â”œâ”€â”€ integration/
-â”‚   â”œâ”€â”€ e2e/
-â”‚   â””â”€â”€ security/
-â”‚
-â”œâ”€â”€ docs/
-â”‚   â”œâ”€â”€ architecture/
-â”‚   â”œâ”€â”€ api/
-â”‚   â”œâ”€â”€ database/
-â”‚   â””â”€â”€ decisions/
-â”‚
-â”œâ”€â”€ docker/
-â”‚
-â””â”€â”€ .github/
-    â””â”€â”€ workflows/
-```
-
-This is much better than:
-
-```text
-src/
- â”œâ”€â”€ components/
- â”œâ”€â”€ random/
- â”œâ”€â”€ api/
- â””â”€â”€ stuff/
+Skills
+Skill assessments
+Certificates
+Certificate repository
+QR verification
 ```
 
 ---
 
-# 50. Free infrastructure stack
+### Phase 5 — Employment Exchange
 
-For **development/MVP**, I'd target:
-
-| Layer               | Technology                   |
-| ------------------- | ---------------------------- |
-| Frontend            | Next.js + TypeScript         |
-| UI                  | Tailwind + shadcn/ui         |
-| Backend             | NestJS                       |
-| ORM                 | Prisma                       |
-| Database            | PostgreSQL                   |
-| Auth                | Supabase Auth                |
-| Storage             | Cloudflare R2                |
-| CDN/WAF             | Cloudflare                   |
-| Frontend deployment | Vercel                       |
-| Backend deployment  | Docker-compatible free host  |
-| Testing             | Vitest + Playwright          |
-| Validation          | Zod                          |
-| API docs            | OpenAPI/Swagger              |
-| CI                  | GitHub Actions               |
-| Monitoring          | Sentry/free-tier alternative |
-| Search              | PostgreSQL FTS initially     |
-| Charts              | Recharts                     |
-| Forms               | React Hook Form              |
-| State/server data   | TanStack Query               |
-| Package manager     | pnpm                         |
-| Containers          | Docker                       |
-| Documentation       | Markdown                     |
-| Version control     | GitHub                       |
-
-Vercel's current Hobby plan is free, while Cloudflare has substantial free Workers/edge infrastructure; those are useful for the zero-cost MVP stage. ([Vercel][2])
-
----
-
-# 51. One major change I'd make to your existing approach
-
-You previously had an architecture involving:
+Build:
 
 ```text
-PostgreSQL
-MongoDB
-Qdrant
-Spring Boot
-```
-
-for your Enterprise Knowledge Intelligence Platform.
-
-For **this ERP/LMS SaaS**, I would **not automatically bring all three databases into the initial architecture**.
-
-Start:
-
-```text
-PostgreSQL
-+
-R2
-```
-
-Then add:
-
-```text
-Redis
-```
-
-when needed.
-
-Then:
-
-```text
-Search engine
-```
-
-when needed.
-
-Then:
-
-```text
-Vector DB
-```
-
-only when AI/RAG actually requires it.
-
-And only split services when actual scale requires it.
-
-That gives you a much more manageable product.
-
----
-
-# 52. Your real differentiator
-
-I wouldn't market it as:
-
-> "An ERP with LMS."
-
-That's too generic.
-
-The product story should be closer to:
-
-> **A modern, reliable operating system for educational institutions.**
-
-Three pillars:
-
-### âš¡ Fast
-
-Pages load quickly.
-
-### ðŸŽ¯ Simple
-
-Every role sees only what they need.
-
-### ðŸ›¡ï¸ Reliable
-
-Data is auditable, isolated and recoverable.
-
-And underneath:
-
-```text
-                 ERPLMS
-                    â”‚
-       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-       â”‚            â”‚            â”‚
-      ERP          LMS        Analytics
-       â”‚            â”‚            â”‚
-       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                    â”‚
-             SaaS Platform
-                    â”‚
-          Multi-Tenant Core
+Employer
+Jobs
+Applications
+Candidate profiles
+Skill matching
+Employment outcomes
 ```
 
 ---
 
-# 53. The most important engineering principle
+### Phase 6 — Career AI
 
-Your code agent should **never be allowed to optimize for â€œfeature count.â€**
-
-Optimize for:
+Build:
 
 ```text
-Correctness
-   â†“
+Career chatbot
+Skill recommendations
+Learning recommendations
+Job recommendations
+```
+
+---
+
+### Phase 7 — Analytics
+
+Build:
+
+```text
+NCCT dashboard
+Institution dashboard
+Trainer dashboard
+Trainee dashboard
+Employer dashboard
+Regional analytics
+Programme analytics
+Employment analytics
+```
+
+---
+
+### Phase 8 — Reliability
+
+Then do the hardening:
+
+```text
 Security
-   â†“
-Reliability
-   â†“
-Performance
-   â†“
-UX
-   â†“
-Features
+Tenant isolation
+Rate limiting
+Validation
+Audit
+Logging
+Monitoring
+Backups
+Load testing
+E2E tests
+Offline synchronization
+Error recovery
 ```
-
-A college ERP with 100 features where attendance randomly disappears is worthless.
-
-A system with 20 extremely reliable features can actually be deployed.
 
 ---
 
-# 54. What I would build first
+# 36. The MVP for the hackathon
 
-If I were starting this repository today, the first milestone would **not even contain LMS functionality**.
+If this is primarily for the **NCCT problem-statement submission/demo**, don't try to implement every feature before demonstrating it.
 
-I'd build:
-
-```text
-ERPLMS Platform
-â”‚
-â”œâ”€â”€ Multi-tenancy
-â”œâ”€â”€ Authentication
-â”œâ”€â”€ RBAC
-â”œâ”€â”€ Organization management
-â”œâ”€â”€ User management
-â”œâ”€â”€ Tenant isolation
-â”œâ”€â”€ Audit logging
-â”œâ”€â”€ Design system
-â”œâ”€â”€ Error handling
-â”œâ”€â”€ API conventions
-â”œâ”€â”€ Database conventions
-â”œâ”€â”€ Testing infrastructure
-â”œâ”€â”€ CI/CD
-â””â”€â”€ Observability
-```
-
-Then build the actual ERP/LMS on top.
-
-That foundation is what allows you to eventually go from:
+The strongest end-to-end demo flow would be:
 
 ```text
-1 college
+        NCCT ADMIN
+            │
+            ▼
+     Create Programme
+            │
+            ▼
+     Rural Youth Registers
+            │
+            ▼
+       Admin Approves
+            │
+            ▼
+      Trainee Enrolled
+            │
+            ▼
+      Learns Offline
+            │
+            ▼
+     QR Attendance
+            │
+            ▼
+        Assessment
+            │
+            ▼
+      Skill Earned
+            │
+            ▼
+   Digital Certificate
+            │
+            ▼
+      Employer Searches
+            │
+            ▼
+      Skill Match Found
+            │
+            ▼
+      Job Application
+            │
+            ▼
+     Employment Outcome
+            │
+            ▼
+       NCCT Analytics
 ```
 
-to:
+**That single workflow covers almost the entire problem statement.**
+
+It demonstrates ERP + LMS + attendance + offline learning + assessment + certification + skills + employment + analytics rather than showing 20 disconnected screens.
+
+---
+
+## The key change
+
+Your ERPLMS shouldn't be presented as:
+
+> **"A college ERP/LMS platform."**
+
+For this problem statement, position it as:
+
+> **"A unified digital ecosystem connecting cooperative training, rural skill development, learning, certification and employment."**
+
+And architecturally:
 
 ```text
-5 colleges
-        â†“
-50 colleges
-        â†“
-500 institutions
-        â†“
-companies / training organizations
+                  ERPLMS CORE
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+      Institution ERP          LMS
+             │                   │
+             └─────────┬─────────┘
+                       │
+               Skills & Certification
+                       │
+                Employment Exchange
+                       │
+                 NCCT Analytics
 ```
 
-**without rewriting the entire backend.**
-
-
-[1]: https://supabase.com/pricing?utm_source=chatgpt.com "Pricing & Fees | Supabase"
-[2]: https://vercel.com/pricing?utm_source=chatgpt.com "Vercel Pricing: Hobby, Pro, and Enterprise plans"
-[3]: https://developers.cloudflare.com/workers/platform/pricing/?utm_source=chatgpt.com "Pricing Â· Cloudflare Workers docs"
-[4]: https://neon.com/blog/new-usage-based-pricing?a=02b5d7e9-95ea-473f-b9c0-ce88dcf1785c&utm_source=chatgpt.com "Neonâ€™s New Pricing, Explained: Usage-Based, No Minimum - Neon"
+That is the version I would have the code agent implement.

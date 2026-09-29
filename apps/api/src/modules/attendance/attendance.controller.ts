@@ -11,6 +11,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AttendanceService } from './attendance.service';
 import { CreateAttendanceSessionDto } from './dto/create-session.dto';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
+import { QrScanDto, FaceVerifyDto } from './dto/qr-attendance.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantIsolationGuard } from '../../common/guards/tenant-isolation.guard';
@@ -67,5 +68,39 @@ export class AttendanceController {
     @Param('studentProfileId') studentProfileId: string,
   ) {
     return this.attendanceService.getStudentReport(orgId, studentProfileId);
+  }
+
+  @ApiOperation({ summary: 'Generate dynamic rotating QR code for attendance session (trainer/faculty)' })
+  @Roles(Role.SUPER_ADMIN, Role.INSTITUTION_ADMIN, Role.COORDINATOR, Role.TRAINER, Role.FACULTY)
+  @Post('sessions/:id/qr-code')
+  async generateDynamicQr(
+    @CurrentTenant() orgId: string,
+    @Param('id') sessionId: string,
+  ) {
+    return this.attendanceService.generateDynamicQr(orgId, sessionId);
+  }
+
+  @ApiOperation({ summary: 'Scan dynamic rotating QR code to record attendance (trainee/student)' })
+  @Post('sessions/:id/qr-scan')
+  async scanDynamicQr(
+    @CurrentTenant() orgId: string,
+    @Param('id') sessionId: string,
+    @Body() dto: QrScanDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: AppRequest,
+  ) {
+    return this.attendanceService.scanDynamicQr(orgId, sessionId, dto, user, req);
+  }
+
+  @ApiOperation({ summary: 'Verify face recognition attendance with privacy consent enforcement' })
+  @Post('sessions/:id/face-verify')
+  async verifyFaceAttendance(
+    @CurrentTenant() orgId: string,
+    @Param('id') sessionId: string,
+    @Body() dto: FaceVerifyDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: AppRequest,
+  ) {
+    return this.attendanceService.verifyFaceAttendance(orgId, sessionId, dto, user, req);
   }
 }

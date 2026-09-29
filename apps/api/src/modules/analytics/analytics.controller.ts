@@ -42,4 +42,39 @@ export class AnalyticsController {
   async getAdminDashboard(@CurrentTenant() orgId: string) {
     return this.analyticsService.getAdminDashboard(orgId);
   }
+
+  @ApiOperation({
+    summary: 'NCCT National Command Center Dashboard (Total Trainees, Completion Rate, State-wise Breakdown)',
+  })
+  @Get('ncct-command-center')
+  async getNcctCommandCenter() {
+    return this.analyticsService.getNcctCommandCenter();
+  }
+
+  @ApiOperation({
+    summary: 'Institution real-time operational dashboard (programmes, trainees, sessions today, occupancy)',
+  })
+  @Get('institution')
+  async getInstitutionOperationalDashboard(@CurrentTenant() orgId: string) {
+    return this.analyticsService.getInstitutionOperationalDashboard(orgId);
+  }
+
+  @ApiOperation({
+    summary: 'Trainee personal learning & career dashboard (progress, certificates, matching opportunities)',
+  })
+  @Get('trainee')
+  async getTraineeDashboard(
+    @CurrentTenant() orgId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.analyticsService.getTraineeDashboard(orgId, user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Employer portal dashboard (active jobs, applicants, interview stats)',
+  })
+  @Get('employer')
+  async getEmployerDashboard(@CurrentUser() user: AuthenticatedUser) {
+    return this.analyticsService.getEmployerDashboard(user.id);
+  }
 }

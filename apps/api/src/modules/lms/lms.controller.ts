@@ -124,4 +124,34 @@ export class LmsController {
   ) {
     return this.lmsService.gradeSubmission(orgId, submissionId, dto, user, req);
   }
+
+  @ApiOperation({ summary: 'Add a multilingual translation for a lesson (e.g. Hindi, Telugu, Tamil, Marathi)' })
+  @Post('lessons/:id/translations')
+  async addTranslation(
+    @CurrentTenant() orgId: string,
+    @Param('id') lessonId: string,
+    @Body() dto: { language: string; title: string; contentBlocks?: any[]; audioUrl?: string; videoUrl?: string },
+  ) {
+    return this.lmsService.addLessonTranslation(orgId, lessonId, dto);
+  }
+
+  @ApiOperation({ summary: 'Get lesson content translated into target language' })
+  @Get('lessons/:id/translations/:language')
+  async getTranslation(
+    @CurrentTenant() orgId: string,
+    @Param('id') lessonId: string,
+    @Param('language') language: string,
+  ) {
+    return this.lmsService.getLessonTranslation(orgId, lessonId, language);
+  }
+
+  @ApiOperation({ summary: 'Idempotent offline progress synchronization from PWA / IndexedDB' })
+  @Post('sync')
+  async syncOfflineProgress(
+    @CurrentTenant() orgId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: { items: { lessonId: string; timeSpentSeconds?: number; completedAt?: string }[] },
+  ) {
+    return this.lmsService.syncOfflineProgress(orgId, user, dto.items || []);
+  }
 }

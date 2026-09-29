@@ -1,10 +1,16 @@
 export enum Role {
   SUPER_ADMIN = 'SUPER_ADMIN',
+  NCCT_ADMIN = 'NCCT_ADMIN',
   INSTITUTION_ADMIN = 'INSTITUTION_ADMIN',
+  COORDINATOR = 'COORDINATOR',
+  TRAINER = 'TRAINER',
+  TRAINEE = 'TRAINEE',
+  EMPLOYER = 'EMPLOYER',
+  STAFF = 'STAFF',
+  // Educational / legacy mappings
   PRINCIPAL = 'PRINCIPAL',
   HOD = 'HOD',
   FACULTY = 'FACULTY',
-  STAFF = 'STAFF',
   STUDENT = 'STUDENT',
   PARENT = 'PARENT',
   FINANCE = 'FINANCE',
@@ -54,6 +60,82 @@ export enum AssessmentAttemptStatus {
   SUBMITTED = 'SUBMITTED',
   EVALUATED = 'EVALUATED',
   ABANDONED = 'ABANDONED',
+}
+
+export enum InstitutionType {
+  NCCT_HQ = 'NCCT_HQ',
+  VAMNICOM = 'VAMNICOM',
+  RICM = 'RICM',
+  ICM = 'ICM',
+  PARTNER_INSTITUTION = 'PARTNER_INSTITUTION',
+  COOPERATIVE_SOCIETY = 'COOPERATIVE_SOCIETY',
+}
+
+export enum TraineeType {
+  COOPERATIVE_PERSONNEL = 'COOPERATIVE_PERSONNEL',
+  PACS_MEMBER = 'PACS_MEMBER',
+  SHG_MEMBER = 'SHG_MEMBER',
+  DAIRY_COOPERATIVE_MEMBER = 'DAIRY_COOPERATIVE_MEMBER',
+  FARMER = 'FARMER',
+  RURAL_YOUTH = 'RURAL_YOUTH',
+  OTHER = 'OTHER',
+}
+
+export enum NominationType {
+  SELF = 'SELF',
+  INSTITUTIONAL = 'INSTITUTIONAL',
+}
+
+export enum RegistrationStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  WAITLISTED = 'WAITLISTED',
+  ENROLLED = 'ENROLLED',
+  CANCELLED = 'CANCELLED',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum ProgrammeMode {
+  OFFLINE = 'OFFLINE',
+  ONLINE = 'ONLINE',
+  BLENDED = 'BLENDED',
+}
+
+export enum ProgrammeStatus {
+  UPCOMING = 'UPCOMING',
+  ONGOING = 'ONGOING',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum HostelAllocationStatus {
+  RESERVED = 'RESERVED',
+  CHECKED_IN = 'CHECKED_IN',
+  CHECKED_OUT = 'CHECKED_OUT',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum LogisticsStatus {
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  DELIVERED = 'DELIVERED',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum CertificateStatus {
+  ISSUED = 'ISSUED',
+  REVOKED = 'REVOKED',
+}
+
+export enum JobApplicationStatus {
+  APPLIED = 'APPLIED',
+  SHORTLISTED = 'SHORTLISTED',
+  INTERVIEWED = 'INTERVIEWED',
+  SELECTED = 'SELECTED',
+  REJECTED = 'REJECTED',
 }
 
 export enum CourseType {

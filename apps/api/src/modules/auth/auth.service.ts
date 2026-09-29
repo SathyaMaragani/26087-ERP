@@ -12,6 +12,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SwitchTenantDto } from './dto/switch-tenant.dto';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { Role, JwtPayload } from '@erplms/types';
 import { AppRequest } from '../../common/types/request-context';
 
@@ -141,13 +142,41 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    // Check account lockout
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const waitMinutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / (60 * 1000));
+      throw new UnauthorizedException(
+        `Account is temporarily locked due to consecutive failed attempts. Try again in ${waitMinutes} minutes or reset password.`,
+      );
+    }
+
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isMatch) {
+      const failedAttempts = user.failedLoginAttempts + 1;
+      const shouldLock = failedAttempts >= 5;
+      const lockedUntil = shouldLock ? new Date(Date.now() + 15 * 60 * 1000) : null;
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: failedAttempts,
+          lockedUntil,
+        },
+      });
+
       throw new UnauthorizedException('Invalid email or password');
     }
 
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Account has been suspended or deactivated');
+    }
+
+    // Reset failed attempts upon successful login
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      });
     }
 
     // Determine default active organization
@@ -172,6 +201,20 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
+    // Generate Refresh Token with Rotation Support
+    const rawRefreshToken = crypto.randomBytes(40).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+
+    await this.prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        ipAddress: req?.ip,
+        userAgent: req?.headers['user-agent'] as string,
+      },
+    });
+
     await this.auditService.log({
       userId: user.id,
       organizationId: activeMembership?.organizationId,
@@ -184,6 +227,7 @@ export class AuthService {
 
     return {
       accessToken,
+      refreshToken: rawRefreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -210,6 +254,194 @@ export class AuthService {
         role: m.role,
       })),
     };
+  }
+
+  async refreshToken(dto: { refreshToken: string }, req?: AppRequest) {
+    if (!dto.refreshToken) {
+      throw new BadRequestException('Refresh token is required');
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(dto.refreshToken).digest('hex');
+    const tokenRecord = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      include: {
+        user: {
+          include: {
+            memberships: {
+              include: { organization: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!tokenRecord) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Token Reuse Detection: if revoked token is submitted, revoke ALL tokens for that user
+    if (tokenRecord.revoked) {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: tokenRecord.userId },
+        data: { revoked: true },
+      });
+      throw new UnauthorizedException(
+        'Security breach detected: Reused refresh token. All active sessions invalidated.',
+      );
+    }
+
+    if (tokenRecord.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token has expired');
+    }
+
+    // Revoke old token
+    await this.prisma.refreshToken.update({
+      where: { id: tokenRecord.id },
+      data: { revoked: true },
+    });
+
+    const user = tokenRecord.user;
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('User account is inactive or suspended');
+    }
+
+    const activeMembership = user.memberships.find((m) => m.status === 'ACTIVE') || user.memberships[0];
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      isSuperAdmin: user.isSuperAdmin,
+      activeOrganizationId: activeMembership?.organizationId,
+      role: (activeMembership?.role as Role) || (user.isSuperAdmin ? Role.SUPER_ADMIN : undefined),
+      permissions: activeMembership?.customPermissions || [],
+    };
+
+    const newAccessToken = this.jwtService.sign(payload);
+    const newRawRefreshToken = crypto.randomBytes(40).toString('hex');
+    const newTokenHash = crypto.createHash('sha256').update(newRawRefreshToken).digest('hex');
+
+    await this.prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: newTokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        ipAddress: req?.ip,
+        userAgent: req?.headers['user-agent'] as string,
+      },
+    });
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRawRefreshToken,
+    };
+  }
+
+  async logout(dto: { refreshToken: string }, req?: AppRequest) {
+    if (dto.refreshToken) {
+      const tokenHash = crypto.createHash('sha256').update(dto.refreshToken).digest('hex');
+      await this.prisma.refreshToken.updateMany({
+        where: { tokenHash },
+        data: { revoked: true },
+      });
+    }
+
+    await this.auditService.log({
+      userId: req?.user?.id,
+      organizationId: req?.tenantId,
+      action: 'LOGOUT',
+      resource: 'Auth',
+      ipAddress: req?.ip,
+      userAgent: req?.headers['user-agent'],
+      requestId: req?.requestId || 'SYSTEM',
+    });
+
+    return { success: true, message: 'Logged out successfully' };
+  }
+
+  async forgotPassword(dto: { email: string }, req?: AppRequest) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email.toLowerCase() },
+    });
+
+    if (!user) {
+      return {
+        message: 'If the provided email exists in our system, password reset instructions have been sent.',
+      };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+      },
+    });
+
+    await this.auditService.log({
+      userId: user.id,
+      action: 'PASSWORD_RESET_REQUESTED',
+      resource: 'Auth',
+      ipAddress: req?.ip,
+      userAgent: req?.headers['user-agent'],
+      requestId: req?.requestId || 'SYSTEM',
+    });
+
+    return {
+      message: 'If the provided email exists in our system, password reset instructions have been sent.',
+      resetToken, // Returned in dev/testing mode
+    };
+  }
+
+  async resetPassword(dto: { token: string; newPassword: string }, req?: AppRequest) {
+    const tokenHash = crypto.createHash('sha256').update(dto.token).digest('hex');
+
+    const resetRecord = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+
+    if (!resetRecord || resetRecord.usedAt || resetRecord.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired password reset token');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(dto.newPassword, salt);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: resetRecord.userId },
+        data: {
+          passwordHash,
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
+      });
+
+      await tx.passwordResetToken.update({
+        where: { id: resetRecord.id },
+        data: { usedAt: new Date() },
+      });
+
+      // Revoke all existing sessions upon password reset
+      await tx.refreshToken.updateMany({
+        where: { userId: resetRecord.userId },
+        data: { revoked: true },
+      });
+    });
+
+    await this.auditService.log({
+      userId: resetRecord.userId,
+      action: 'PASSWORD_RESET_COMPLETED',
+      resource: 'Auth',
+      ipAddress: req?.ip,
+      userAgent: req?.headers['user-agent'],
+      requestId: req?.requestId || 'SYSTEM',
+    });
+
+    return { success: true, message: 'Password has been reset successfully' };
   }
 
   async switchTenant(dto: SwitchTenantDto, userId: string, req?: AppRequest) {

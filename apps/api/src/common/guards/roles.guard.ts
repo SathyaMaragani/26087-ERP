@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from '@erplms/types';
@@ -11,11 +12,7 @@ import { AppRequest } from '../types/request-context';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  private readonly reflector: Reflector;
-
-  constructor(reflector?: Reflector) {
-    this.reflector = reflector || new Reflector();
-  }
+  constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [

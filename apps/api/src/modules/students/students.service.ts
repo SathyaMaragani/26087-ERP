@@ -370,6 +370,15 @@ export class StudentsService {
       }
     }
 
+    events.push({
+      type: 'ENROLLMENT',
+      title: 'Enrolled in Academic Programme',
+      description: `Enrollment: ${student.enrollmentNumber} | Roll: ${student.rollNumber}`,
+      timestamp: student.createdAt,
+      icon: 'user-check',
+      metadata: { enrollmentNumber: student.enrollmentNumber },
+    });
+
     // Sort by timestamp descending
     events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
