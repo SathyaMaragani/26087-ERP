@@ -226,6 +226,8 @@ export class AnalyticsService {
       traineesByType,
       programmesByCategory,
       traineesByState,
+      totalRegistrations,
+      completedRegistrations,
     ] = await Promise.all([
       this.prisma.traineeProfile.count(),
       this.prisma.trainingProgramme.count(),
@@ -245,13 +247,20 @@ export class AnalyticsService {
         _count: { id: true },
         where: { state: { not: null } },
       }),
+      this.prisma.programmeRegistration.count({
+        where: { status: { in: ['ENROLLED', 'COMPLETED'] } },
+      }),
+      this.prisma.programmeRegistration.count({ where: { status: 'COMPLETED' } }),
     ]);
 
-    const completionRatePercent = totalProgrammes > 0 ? 87 : 0;
+    // Every rate below is a real ratio over what is actually on the record, with no
+    // fallback to a demo number: an empty platform reports 0%, not a plausible-looking figure.
+    const completionRatePercent =
+      totalRegistrations > 0 ? Math.round((completedRegistrations / totalRegistrations) * 100) : 0;
     const certificationRatePercent =
-      totalTrainees > 0 ? Math.round((totalCertificates / totalTrainees) * 100) : 76;
+      totalTrainees > 0 ? Math.min(100, Math.round((totalCertificates / totalTrainees) * 100)) : 0;
     const employmentLinkagePercent =
-      totalTrainees > 0 ? Math.round((totalPlacements / totalTrainees) * 100) : 31;
+      totalTrainees > 0 ? Math.min(100, Math.round((totalPlacements / totalTrainees) * 100)) : 0;
 
     return {
       commandCenter: {
@@ -259,13 +268,14 @@ export class AnalyticsService {
         updatedAt: new Date(),
       },
       nationalKpis: {
-        totalTrainees: totalTrainees || 48392, // Real DB count with fallback to demo benchmark
-        totalProgrammes: totalProgrammes || 1248,
-        totalInstitutions: totalInstitutions || 312,
+        totalTrainees,
+        totalProgrammes,
+        totalInstitutions,
         completionRatePercent,
-        certificationRatePercent: Math.min(100, certificationRatePercent || 76),
-        employmentLinkagePercent: Math.min(100, employmentLinkagePercent || 31),
-        digitalLearningAdoptionPercent: 72,
+        certificationRatePercent,
+        employmentLinkagePercent,
+        // No usage signal exists yet to compute this (see docs/REQUIREMENTS_TRACEABILITY.md, ref N); null, not a guess.
+        digitalLearningAdoptionPercent: null,
       },
       statePerformance: traineesByState.map((s) => ({
         state: s.state,

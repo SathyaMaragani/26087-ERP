@@ -167,71 +167,66 @@ export interface LogisticsItem {
   cost?: number;
 }
 
+/** Roles as the interface models them. Mapped from backend roles in state/auth. */
+export type UiRole =
+  | 'NCCT_ADMIN'
+  | 'RICM_DIRECTOR'
+  | 'RICM_COORDINATOR'
+  | 'TRAINER'
+  | 'TRAINEE'
+  | 'RECRUITER';
+
 export interface UserPersona {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UiRole;
   title: string;
   instituteName: string;
   organizationId: string;
-  avatar?: string;
+  /** Present for TRAINEE sessions once the trainee profile has resolved. */
+  traineeId?: string;
 }
 
-export const DEMO_PERSONAS: UserPersona[] = [
-  {
-    id: 'usr-admin-1',
-    name: 'Dr. Rajiv Sinha',
-    email: 'ncct.admin@ncct.gov.in',
-    role: 'NCCT_ADMIN',
-    title: 'Director General & Apex Admin',
-    instituteName: 'NCCT National Headquarters, New Delhi',
-    organizationId: 'org-ncct-hq',
-  },
-  {
-    id: 'usr-dir-1',
-    name: 'Dr. V. K. Rao',
-    email: 'director@ricm-hyd.ac.in',
-    role: 'RICM_DIRECTOR',
-    title: 'Director & Chief Executive',
-    instituteName: 'RICM Hyderabad, Telangana',
-    organizationId: 'org-ricm-hyd',
-  },
-  {
-    id: 'usr-coord-1',
-    name: 'Ananya Sharma',
-    email: 'coordinator@ricm-hyd.ac.in',
-    role: 'RICM_COORDINATOR',
-    title: 'Senior Training Coordinator',
-    instituteName: 'RICM Hyderabad, Telangana',
-    organizationId: 'org-ricm-hyd',
-  },
-  {
-    id: 'usr-trainer-1',
-    name: 'Prof. Ramesh Gupta',
-    email: 'prof.sharma@ricm-hyd.ac.in',
-    role: 'TRAINER',
-    title: 'Lead Faculty - PACS & Cooperative Accounting',
-    instituteName: 'RICM Hyderabad, Telangana',
-    organizationId: 'org-ricm-hyd',
-  },
-  {
-    id: 'usr-trainee-1',
-    name: 'Ramesh Kumar',
-    email: 'ramesh.kumar@rural.in',
-    role: 'TRAINEE',
-    title: 'Rural Trainee (Warangal PACS)',
-    instituteName: 'Warangal PACS / RICM Hyderabad',
-    organizationId: 'org-ricm-hyd',
-  },
-  {
-    id: 'usr-recruiter-1',
-    name: 'Vikram Joshi',
-    email: 'recruiter@markfed.telangana.gov.in',
-    role: 'RECRUITER',
-    title: 'Head of Talent & Recruitment',
-    instituteName: 'Telangana State Markfed',
-    organizationId: 'org-ricm-hyd',
-  },
-];
+export const ROLE_META: Record<UiRole, { label: string; title: string; blurb: string }> = {
+  NCCT_ADMIN: { label: 'NCCT Apex Admin', title: 'National Command', blurb: 'National KPIs, cross-institution curriculum and state analytics.' },
+  RICM_DIRECTOR: { label: 'Institution Director', title: 'Institution Command', blurb: 'Campus operations, hostel, certificates and institutional analytics.' },
+  RICM_COORDINATOR: { label: 'Programme Coordinator', title: 'Operations Cockpit', blurb: 'Nominations, approvals, batches and timetable conflicts.' },
+  TRAINER: { label: 'Faculty / Trainer', title: 'Teaching Workspace', blurb: 'Rotating QR attendance, sessions and learner progress.' },
+  TRAINEE: { label: 'Trainee', title: 'My Learning', blurb: 'Multilingual lessons, offline sync, certificates and jobs.' },
+  RECRUITER: { label: 'Cooperative Recruiter', title: 'Talent Intelligence', blurb: 'Vacancies, skill-matched candidates and verified credentials.' },
+};
 
+/** Backend membership role -> interface role. */
+export function toUiRole(backendRole: string | undefined, isSuperAdmin?: boolean): UiRole {
+  switch (backendRole) {
+    case 'NCCT_ADMIN':
+      return 'NCCT_ADMIN';
+    case 'INSTITUTION_ADMIN':
+    case 'PRINCIPAL':
+      return 'RICM_DIRECTOR';
+    case 'COORDINATOR':
+      return 'RICM_COORDINATOR';
+    case 'TRAINER':
+    case 'FACULTY':
+    case 'HOD':
+      return 'TRAINER';
+    case 'TRAINEE':
+    case 'STUDENT':
+      return 'TRAINEE';
+    case 'EMPLOYER':
+      return 'RECRUITER';
+    default:
+      return isSuperAdmin ? 'NCCT_ADMIN' : 'TRAINEE';
+  }
+}
+
+/** Seeded demo accounts, surfaced on the login screen in development builds only. */
+export const DEMO_ACCOUNTS: Array<{ role: UiRole; name: string; email: string; password: string }> = [
+  { role: 'NCCT_ADMIN', name: 'National Director', email: 'ncct.admin@ncct.gov.in', password: 'Admin@123' },
+  { role: 'RICM_DIRECTOR', name: 'RICM Director', email: 'director@ricm-hyd.ac.in', password: 'Admin@123' },
+  { role: 'RICM_COORDINATOR', name: 'Programme Coordinator', email: 'coordinator@ricm-hyd.ac.in', password: 'Coordinator@123' },
+  { role: 'TRAINER', name: 'Faculty', email: 'prof.sharma@ricm-hyd.ac.in', password: 'Trainer@123' },
+  { role: 'TRAINEE', name: 'Trainee', email: 'ramesh.kumar@rural.in', password: 'Trainee@123' },
+  { role: 'RECRUITER', name: 'Recruiter', email: 'recruiter@markfed.telangana.gov.in', password: 'Employer@123' },
+];

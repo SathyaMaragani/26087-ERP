@@ -1,887 +1,313 @@
-import { useState, useEffect } from 'react';
-import { 
-  Briefcase, 
-  MapPin, 
-  DollarSign, 
-  Plus, 
-  Search, 
-  Filter, 
-  Sparkles, 
-  Award, 
-  UserCheck, 
-  ChevronRight, 
-  CheckCircle2, 
-  Clock, 
-  Building2,
-  ExternalLink,
-  Target
-} from 'lucide-react';
-import { api } from '../api/client';
-import { UserPersona } from '../types';
+import { useMemo, useState, type FormEvent } from 'react';
+import { BadgeCheck, Briefcase, CalendarClock, MapPin, Plus, Search, Send, Users } from 'lucide-react';
+import { api, ApiError, type MatchResult } from '../api/client';
+import { useAsync } from '../lib/useAsync';
+import { useToast } from '../state/toast';
+import type { UserPersona } from '../types';
+import { Drawer, Modal } from '../ui/Modal';
+import { Badge, Button, EmptyState, ErrorState, LoadingBlock, PageHeader, Surface } from '../ui/primitives';
+import { fmtDate, statusTone } from '../features/home/shared';
+import { JourneyStrip } from '../ui/Lifecycle';
+import { MatchNetwork } from '../ui/MatchNetwork';
 
-interface EmploymentExchangeViewProps {
-  currentPersona: UserPersona;
-}
+const norm = (s: string) => s.trim().toLowerCase();
+/** Same rule the server uses: substring match either way. */
+const holds = (owned: string[], required: string) => owned.some((o) => norm(o).includes(norm(required)) || norm(required).includes(norm(o)));
 
-export const EmploymentExchangeView = ({ currentPersona }: EmploymentExchangeViewProps) => {
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedJobForMatching, setSelectedJobForMatching] = useState<any | null>(null);
-  const [matchingResults, setMatchingResults] = useState<any | null>(null);
-  const [matchingLoading, setMatchingLoading] = useState(false);
-  const [showPostJobModal, setShowPostJobModal] = useState(false);
-  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
-  const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
-  const [successMsg, setSuccessMsg] = useState('');
+export function EmploymentExchangeView({ currentPersona }: { currentPersona: UserPersona }) {
+  const toast = useToast();
+  const role = currentPersona.role;
+  const isTrainee = role === 'TRAINEE';
+  const canPost = role === 'NCCT_ADMIN' || role === 'RECRUITER';
+  const canReview = !isTrainee;
 
-  // Post Job form state
-  const [title, setTitle] = useState('');
-  const [company, setCompany] = useState('IFFCO Agricultural Cooperative');
-  const [location, setLocation] = useState('Pune, Maharashtra');
-  const [type, setType] = useState('FULL_TIME');
-  const [salaryRange, setSalaryRange] = useState('₹3.5 - 5.0 LPA');
-  const [skillsInput, setSkillsInput] = useState('PACS Accounting, Tally ERP, Cooperative Law');
-  const [description, setDescription] = useState('Seeking trained cooperative secretary/accountant to manage credit society records and daily member ledgers.');
+  const jobs = useAsync(() => api.employment.getJobs(), []);
+  const mine = useAsync(() => (isTrainee ? api.analytics.getTrainee() : Promise.resolve(null)), [isTrainee]);
+  const employerProfile = useAsync(() => (role === 'RECRUITER' ? api.analytics.getEmployer() : Promise.resolve(null)), [role]);
+  const employers = useAsync(() => (role === 'NCCT_ADMIN' ? api.employment.getEmployers() : Promise.resolve([] as any[])), [role]);
 
-  const isRecruiterOrAdmin = ['NCCT_ADMIN', 'RICM_COORDINATOR', 'RECRUITER'].includes(currentPersona.role);
+  const [query, setQuery] = useState('');
+  const [applied, setApplied] = useState<Record<string, boolean>>({});
+  const [applying, setApplying] = useState<string | null>(null);
+  const [postOpen, setPostOpen] = useState(false);
+  const [matchJob, setMatchJob] = useState<any | null>(null);
+  const [appsJob, setAppsJob] = useState<any | null>(null);
 
-  const fetchJobs = async () => {
+  const ownedSkills: string[] = useMemo(() => (mine.data?.skills ?? []).map((s: any) => s.name), [mine.data]);
+
+  const apps = useAsync(() => (isTrainee ? Promise.resolve([] as any[]) : api.employment.getApplications()), [isTrainee]);
+  const regs = useAsync(() => (isTrainee ? api.nominations.mine() : Promise.resolve([] as any[])), [isTrainee]);
+  const appliedCount = Object.keys(applied).length;
+  const selected = (apps.data ?? []).filter((a: any) => a.status === 'SELECTED').length;
+  const story = [
+    { name: 'TRAINING', state: 'live' as const, count: isTrainee ? (regs.data ?? []).filter((r: any) => ['ENROLLED', 'COMPLETED'].includes(r.status)).length : undefined, hint: isTrainee ? 'Programmes enrolled' : 'Trainees in programmes' },
+    { name: 'SKILLS', state: 'live' as const, count: isTrainee ? ownedSkills.length : undefined, hint: 'Verified by institutions' },
+    { name: 'CERTIFICATION', state: 'live' as const, count: isTrainee ? mine.data?.kpis?.certificatesEarned : undefined, hint: 'Public, checkable' },
+    { name: 'JOB DISCOVERY', state: 'live' as const, count: (jobs.data ?? []).length, hint: 'Open vacancies' },
+    { name: 'APPLICATION', state: 'live' as const, count: isTrainee ? appliedCount : (apps.data ?? []).length, hint: isTrainee ? 'This session' : 'Received' },
+    { name: 'EMPLOYMENT', state: isTrainee ? ('unavailable' as const) : ('live' as const), count: isTrainee ? undefined : selected, hint: isTrainee ? 'Not visible to learners' : 'Selected' },
+    { name: 'OUTCOME', state: 'unavailable' as const, hint: 'Recorded per placement; no list endpoint' },
+  ];
+
+  const filtered = useMemo(() => {
+    const q = norm(query);
+    return (jobs.data ?? []).filter((j: any) => !q || `${j.title} ${j.location} ${j.employer?.companyName ?? ''} ${(j.requiredSkills ?? []).join(' ')}`.toLowerCase().includes(q));
+  }, [jobs.data, query]);
+
+  const apply = async (job: any) => {
+    if (!currentPersona.traineeId) { toast.error('Your trainee profile could not be found', 'Sign out and back in, or contact your institution.'); return; }
+    setApplying(job.id);
     try {
-      setLoading(true);
-      const res = await api.employment.getJobs();
-      if (res && res.length > 0) {
-        setJobs(res);
-      } else {
-        // Fallback default jobs for rich display
-        setJobs([
-          {
-            id: 'job-101',
-            title: 'PACS Senior Accountant',
-            company: 'Maharashtra State Cooperative Bank',
-            location: 'Pune / Satara, MH',
-            type: 'FULL_TIME',
-            salaryRange: '₹3.6 - 4.8 LPA',
-            skillsRequired: ['PACS Accounting', 'Tally ERP', 'Cooperative Law'],
-            description: 'Direct day-to-day accounts for primary agricultural credit societies. Verify member loans and KCC credits.',
-            applicationCount: 14,
-            status: 'OPEN'
-          },
-          {
-            id: 'job-102',
-            title: 'FPO Operations & Cold Chain Supervisor',
-            company: 'Sahyadri Farmers Producer Co.',
-            location: 'Nashik, Maharashtra',
-            type: 'FULL_TIME',
-            salaryRange: '₹4.0 - 5.5 LPA',
-            skillsRequired: ['Cold Chain Management', 'Quality Inspection', 'Inventory Management'],
-            description: 'Oversee sorting, packaging, and perishable cold chain distribution for 45 village collection clusters.',
-            applicationCount: 8,
-            status: 'OPEN'
-          },
-          {
-            id: 'job-103',
-            title: 'Dairy Cooperative Society Inspector',
-            company: 'AMUL Dairy Federation',
-            location: 'Anand & Vadodara, Gujarat',
-            type: 'APPRENTICESHIP',
-            salaryRange: '₹2.8 - 3.6 LPA',
-            skillsRequired: ['Dairy Operations', 'Quality Testing', 'Member Mobilization'],
-            description: 'Inspect village-level milk pooling centers, verify fat-testing calibration, and conduct farmer governance briefings.',
-            applicationCount: 22,
-            status: 'OPEN'
-          },
-          {
-            id: 'job-104',
-            title: 'Agri-Credit Field Officer',
-            company: 'NABARD Rural Support Agency',
-            location: 'Hyderabad, Telangana',
-            type: 'CONTRACT',
-            salaryRange: '₹3.2 - 4.2 LPA',
-            skillsRequired: ['Cooperative Audit', 'Loan Documentation', 'PACS Accounting'],
-            description: 'Review micro-credit disbursements, self-help group linkages, and statutory compliance across district societies.',
-            applicationCount: 19,
-            status: 'OPEN'
-          }
-        ]);
-      }
-    } catch {
-      // Offline fallback
-      setJobs([
-        {
-          id: 'job-101',
-          title: 'PACS Senior Accountant',
-          company: 'Maharashtra State Cooperative Bank',
-          location: 'Pune / Satara, MH',
-          type: 'FULL_TIME',
-          salaryRange: '₹3.6 - 4.8 LPA',
-          skillsRequired: ['PACS Accounting', 'Tally ERP', 'Cooperative Law'],
-          description: 'Direct day-to-day accounts for primary agricultural credit societies. Verify member loans and KCC credits.',
-          applicationCount: 14,
-          status: 'OPEN'
-        },
-        {
-          id: 'job-102',
-          title: 'FPO Operations Supervisor',
-          company: 'Sahyadri Farmers Producer Co.',
-          location: 'Nashik, Maharashtra',
-          type: 'FULL_TIME',
-          salaryRange: '₹4.0 - 5.5 LPA',
-          skillsRequired: ['Cold Chain Management', 'Quality Inspection', 'Inventory Management'],
-          description: 'Oversee sorting, packaging, and perishable distribution for 45 village collection centers.',
-          applicationCount: 8,
-          status: 'OPEN'
-        }
-      ]);
+      await api.employment.applyJob(job.id, currentPersona.traineeId);
+      setApplied((a) => ({ ...a, [job.id]: true }));
+      toast.success('Application sent', `${job.employer?.companyName ?? 'The employer'} can now see your verified NCCT profile.`);
+      jobs.reload();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) setApplied((a) => ({ ...a, [job.id]: true }));
+      toast.error(e instanceof ApiError && e.status === 409 ? 'Already applied' : 'Could not apply', e instanceof Error ? e.message : undefined);
     } finally {
-      setLoading(false);
+      setApplying(null);
     }
   };
-
-  useEffect(() => {
-    fetchJobs();
-  }, []);
-
-  const handleApply = async (jobId: string) => {
-    setApplyingJobId(jobId);
-    try {
-      await api.employment.applyJob(jobId, currentPersona.id);
-      setAppliedJobs(prev => ({ ...prev, [jobId]: true }));
-      setSuccessMsg(`Application successfully submitted for Job #${jobId}! Employer will receive your verified NCCT profile.`);
-    } catch {
-      // Local state simulation
-      setAppliedJobs(prev => ({ ...prev, [jobId]: true }));
-      setSuccessMsg(`Application registered successfully with verified credentials!`);
-    } finally {
-      setApplyingJobId(null);
-      setTimeout(() => setSuccessMsg(''), 6000);
-    }
-  };
-
-  const handleMatchCandidates = async (job: any) => {
-    setSelectedJobForMatching(job);
-    setMatchingLoading(true);
-    try {
-      const res = await api.employment.matchCandidates(job.id);
-      if (res && res.topMatches) {
-        setMatchingResults(res);
-      } else {
-        // Fallback matched trainees
-        setMatchingResults({
-          jobId: job.id,
-          totalMatched: 4,
-          topMatches: [
-            {
-              traineeId: 'TR-2026-0891',
-              name: 'Suresh Patil',
-              phone: '+91 98231 44512',
-              email: 'suresh.patil@ruralcoop.in',
-              district: 'Satara, Maharashtra',
-              institute: 'RICM Pune',
-              matchScore: 100,
-              matchingSkills: ['PACS Accounting', 'Tally ERP', 'Cooperative Law'],
-              missingSkills: [],
-              grade: 'Distinction (A+)'
-            },
-            {
-              traineeId: 'TR-2026-0892',
-              name: 'Sunita Meena',
-              phone: '+91 94142 88319',
-              email: 'sunita.meena@rajasthan.gov.in',
-              district: 'Jaipur, Rajasthan',
-              institute: 'RICM Jaipur',
-              matchScore: 80,
-              matchingSkills: ['PACS Accounting', 'Cooperative Law'],
-              missingSkills: ['Tally ERP'],
-              grade: 'First Class (A)'
-            },
-            {
-              traineeId: 'TR-2026-0893',
-              name: 'Rameshwar Reddy',
-              phone: '+91 99881 22345',
-              email: 'rameshwar.reddy@telangana.org',
-              district: 'Warangal, Telangana',
-              institute: 'RICM Hyderabad',
-              matchScore: 66,
-              matchingSkills: ['Tally ERP', 'PACS Accounting'],
-              missingSkills: ['Cooperative Law'],
-              grade: 'Grade B+'
-            }
-          ]
-        });
-      }
-    } catch {
-      setMatchingResults({
-        jobId: job.id,
-        totalMatched: 2,
-        topMatches: [
-          {
-            traineeId: 'TR-2026-0891',
-            name: 'Suresh Patil',
-            phone: '+91 98231 44512',
-            email: 'suresh.patil@ruralcoop.in',
-            district: 'Satara, Maharashtra',
-            institute: 'RICM Pune',
-            matchScore: 100,
-            matchingSkills: ['PACS Accounting', 'Tally ERP', 'Cooperative Law'],
-            missingSkills: [],
-            grade: 'Distinction (A+)'
-          }
-        ]
-      });
-    } finally {
-      setMatchingLoading(false);
-    }
-  };
-
-  const handlePostJob = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const skillsArr = skillsInput.split(',').map(s => s.trim()).filter(Boolean);
-      await api.employment.postJob({
-        title,
-        company,
-        location,
-        type,
-        salaryRange,
-        skillsRequired: skillsArr,
-        description,
-      });
-      setShowPostJobModal(false);
-      fetchJobs();
-      setSuccessMsg('Job posting created and indexed for NCCT skill matching!');
-      setTimeout(() => setSuccessMsg(''), 5000);
-    } catch (err: any) {
-      alert(`Error posting job: ${err?.message || 'Could not post'}`);
-    }
-  };
-
-  const filteredJobs = jobs.filter(j => {
-    const matchesSearch = 
-      j.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (j.skillsRequired && j.skillsRequired.some((s: string) => s.toLowerCase().includes(searchQuery.toLowerCase())));
-    return matchesSearch;
-  });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Banner / Success notification */}
-      {successMsg && (
-        <div style={{ 
-          padding: '1rem 1.25rem', 
-          borderRadius: 'var(--radius-md)', 
-          background: 'rgba(16, 185, 129, 0.15)', 
-          border: '1px solid rgba(16, 185, 129, 0.4)',
-          color: '#34d399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          animation: 'slideUp 0.3s ease'
-        }}>
-          <CheckCircle2 size={20} />
-          <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{successMsg}</span>
-        </div>
-      )}
+    <>
+      <PageHeader eyebrow="Employment exchange" title={<>Skills meet <em className="serif-em">work</em></>}
+        description={isTrainee ? 'Open roles across the cooperative sector, with how your verified skills fit each one.' : 'Post vacancies and rank candidates by verified skills — deterministic and explainable.'}
+        actions={canPost && <Button variant="primary" icon={<Plus size={15} />} onClick={() => setPostOpen(true)}>Post a job</Button>} />
 
-      {/* Header section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-            <div style={{ 
-              width: '36px', 
-              height: '36px', 
-              borderRadius: '8px', 
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.4))',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              border: '1px solid rgba(245, 158, 11, 0.4)'
-            }}>
-              <Briefcase size={20} color="#f59e0b" />
-            </div>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 700, margin: 0 }}>
-              Cooperative Employment Exchange
-            </h1>
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-            Bridging NCCT-certified rural talent with leading National Cooperatives, FPOs, and Credit Federations.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          {isRecruiterOrAdmin && (
-            <button 
-              className="btn btn-primary"
-              onClick={() => setShowPostJobModal(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            >
-              <Plus size={16} />
-              Post Vacancy
-            </button>
-          )}
-        </div>
+      <div className="story">
+        <div className="eyebrow">The employment ecosystem</div>
+        <JourneyStrip steps={story} />
       </div>
 
-      {/* KPI Highlights */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
-          <div style={{ 
-            width: '44px', 
-            height: '44px', 
-            borderRadius: '10px', 
-            background: 'rgba(59, 130, 246, 0.15)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            color: 'var(--primary-light)'
-          }}>
-            <Briefcase size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>{jobs.length}</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Active Cooperative Openings</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
-          <div style={{ 
-            width: '44px', 
-            height: '44px', 
-            borderRadius: '10px', 
-            background: 'rgba(16, 185, 129, 0.15)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            color: 'var(--success)'
-          }}>
-            <Target size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>88.4%</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Skill Match Precision</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
-          <div style={{ 
-            width: '44px', 
-            height: '44px', 
-            borderRadius: '10px', 
-            background: 'rgba(245, 158, 11, 0.15)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            color: '#f59e0b'
-          }}>
-            <Building2 size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>64+</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Registered Employers / FPOs</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
-          <div style={{ 
-            width: '44px', 
-            height: '44px', 
-            borderRadius: '10px', 
-            background: 'rgba(168, 85, 247, 0.15)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            color: '#c084fc'
-          }}>
-            <UserCheck size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>1,420</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Trainees Placed (FY26)</div>
-          </div>
-        </div>
+      <div className="search-row">
+        <Search size={16} aria-hidden />
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search roles, employers, locations or skills" aria-label="Search jobs" />
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="card" style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '1rem' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input 
-            type="text" 
-            placeholder="Search by job title, cooperative name, required skills, or district..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ 
-              width: '100%', 
-              paddingLeft: '2.5rem', 
-              background: 'var(--bg-glass-input)', 
-              border: '1px solid var(--border-glass)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-primary)',
-              paddingTop: '0.55rem',
-              paddingBottom: '0.55rem'
-            }}
-          />
-        </div>
-        <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}>
-          <Filter size={15} /> Filter
-        </button>
-      </div>
-
-      {/* Jobs Grid */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
-          Loading cooperative opportunities...
-        </div>
-      ) : filteredJobs.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <Briefcase size={40} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
-          <p style={{ color: 'var(--text-secondary)' }}>No jobs found matching "{searchQuery}"</p>
-        </div>
+      {jobs.loading && !jobs.data ? <LoadingBlock label="Loading vacancies" /> : jobs.error ? <ErrorState detail={jobs.error} onRetry={jobs.reload} /> : filtered.length === 0 ? (
+        <Surface><EmptyState icon={<Briefcase size={22} />} title={query ? 'No roles match your search' : 'No open vacancies'} detail={query ? undefined : canPost ? 'Post the first vacancy to start matching candidates.' : 'New vacancies will appear here as employers post them.'} /></Surface>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
-          {filteredJobs.map((job) => {
-            const hasApplied = appliedJobs[job.id];
+        <ul className="job-list">
+          {filtered.map((j: any) => {
+            const req: string[] = j.requiredSkills ?? [];
+            const have = req.filter((r) => holds(ownedSkills, r));
+            const done = applied[j.id];
             return (
-              <div 
-                key={job.id} 
-                className="card" 
-                style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  justifyContent: 'space-between',
-                  gap: '1rem',
-                  padding: '1.35rem',
-                  position: 'relative',
-                  border: '1px solid var(--border-glass)',
-                  transition: 'transform 0.2s ease, border-color 0.2s ease'
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                    <div>
-                      <span className="badge badge-warning" style={{ fontSize: '0.7rem', marginBottom: '0.4rem', display: 'inline-block' }}>
-                        {job.type?.replace('_', ' ') || 'FULL TIME'}
-                      </span>
-                      <h3 style={{ fontSize: '1.15rem', fontWeight: 600, margin: '0.2rem 0' }}>
-                        {job.title}
-                      </h3>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                        <Building2 size={14} />
-                        <span>{job.company}</span>
+              <li key={j.id} className="job">
+                <div className="job-main">
+                  <div className="job-head">
+                    <h3>{j.title}</h3>
+                    <Badge tone={statusTone(j.status)} dot>{j.status}</Badge>
+                  </div>
+                  <div className="job-meta">
+                    <span>{j.employer?.companyName}</span>
+                    <span><MapPin size={13} aria-hidden /> {j.location}</span>
+                    <span><Users size={13} aria-hidden /> {j.vacancies} vacanc{j.vacancies === 1 ? 'y' : 'ies'}</span>
+                    {j.salaryRange && <span className="num">{j.salaryRange}</span>}
+                    {j.deadline && <span><CalendarClock size={13} aria-hidden /> Apply by {fmtDate(j.deadline)}</span>}
+                  </div>
+                  <p className="job-desc">{j.description}</p>
+                  <ul className="skill-chips" aria-label="Required skills">
+                    {req.map((r) => <li key={r} className={isTrainee && holds(ownedSkills, r) ? 'is-held' : ''}>{isTrainee && holds(ownedSkills, r) && <BadgeCheck size={12} aria-label="You hold this skill" />}{r}</li>)}
+                  </ul>
+                </div>
+                <div className="job-side">
+                  {isTrainee ? (
+                    <>
+                      <div className="fit" aria-label={`You hold ${have.length} of ${req.length} required skills`}>
+                        <span className="num fit-score">{req.length ? Math.round((have.length / req.length) * 100) : 100}%</span>
+                        <span className="cell-sub">skill fit · {have.length} of {req.length}</span>
                       </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', margin: '0.75rem 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <MapPin size={14} color="var(--primary-light)" />
-                      <span>{job.location}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <DollarSign size={14} color="#10b981" />
-                      <span>{job.salaryRange}</span>
-                    </div>
-                  </div>
-
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: '0.75rem' }}>
-                    {job.description}
-                  </p>
-
-                  {/* Required skills */}
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
-                      Target NCCT Competencies:
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                      {job.skillsRequired && job.skillsRequired.map((skill: string, idx: number) => (
-                        <span 
-                          key={idx} 
-                          style={{ 
-                            fontSize: '0.72rem', 
-                            padding: '0.2rem 0.5rem', 
-                            borderRadius: '4px', 
-                            background: 'rgba(59, 130, 246, 0.1)', 
-                            border: '1px solid rgba(59, 130, 246, 0.25)',
-                            color: '#93c5fd'
-                          }}
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                      <Button variant="primary" loading={applying === j.id} disabled={done} icon={<Send size={14} />} onClick={() => apply(j)}>{done ? 'Applied' : 'Apply'}</Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="cell-sub num">{j._count?.applications ?? 0} application{(j._count?.applications ?? 0) === 1 ? '' : 's'}</div>
+                      {canReview && <Button size="sm" variant="primary" onClick={() => setMatchJob(j)}>Find candidates</Button>}
+                      {canReview && <Button size="sm" onClick={() => setAppsJob(j)}>Applications</Button>}
+                    </>
+                  )}
                 </div>
-
-                {/* Bottom Actions */}
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between', 
-                  borderTop: '1px solid rgba(255,255,255,0.06)', 
-                  paddingTop: '0.85rem',
-                  marginTop: '0.5rem'
-                }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <Clock size={13} />
-                    <span>{job.applicationCount || 0} Applicants</span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {isRecruiterOrAdmin && (
-                      <button 
-                        className="btn btn-secondary"
-                        onClick={() => handleMatchCandidates(job)}
-                        style={{ 
-                          fontSize: '0.78rem', 
-                          padding: '0.35rem 0.65rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          background: 'rgba(168, 85, 247, 0.15)',
-                          borderColor: 'rgba(168, 85, 247, 0.3)',
-                          color: '#d8b4fe'
-                        }}
-                      >
-                        <Sparkles size={13} />
-                        Match Candidates
-                      </button>
-                    )}
-
-                    {currentPersona.role === 'TRAINEE' ? (
-                      <button 
-                        className={`btn ${hasApplied ? 'btn-secondary' : 'btn-primary'}`}
-                        disabled={hasApplied || applyingJobId === job.id}
-                        onClick={() => handleApply(job.id)}
-                        style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
-                      >
-                        {hasApplied ? (
-                          <>
-                            <CheckCircle2 size={13} style={{ marginRight: '0.3rem' }} />
-                            Applied
-                          </>
-                        ) : applyingJobId === job.id ? (
-                          'Submitting...'
-                        ) : (
-                          '1-Click Apply'
-                        )}
-                      </button>
-                    ) : (
-                      <button 
-                        className="btn btn-primary"
-                        onClick={() => handleMatchCandidates(job)}
-                        style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
-                      >
-                        Evaluate
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
 
-      {/* Candidate Skill-Matching Engine Modal */}
-      {selectedJobForMatching && (
-        <div className="modal-overlay" onClick={() => setSelectedJobForMatching(null)}>
-          <div 
-            className="modal-content" 
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '780px' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                  <Sparkles size={20} color="#c084fc" />
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>
-                    AI Skill-Matching Engine
-                  </h2>
-                </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                  Automated ranking of certified NCCT candidates based on verified competency masteries for: 
-                  <strong style={{ color: 'var(--text-primary)', marginLeft: '0.3rem' }}>{selectedJobForMatching.title}</strong>
-                </p>
-              </div>
-              <button 
-                className="btn-ghost" 
-                onClick={() => setSelectedJobForMatching(null)}
-                style={{ fontSize: '1.2rem', padding: '0.2rem 0.5rem' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Target Job Skills Bar */}
-            <div style={{ 
-              background: 'rgba(255, 255, 255, 0.03)', 
-              borderRadius: 'var(--radius-sm)', 
-              padding: '0.75rem 1rem', 
-              border: '1px solid var(--border-glass)',
-              marginBottom: '1.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem'
-            }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>Required Profile:</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                {selectedJobForMatching.skillsRequired?.map((s: string, idx: number) => (
-                  <span key={idx} className="badge badge-primary" style={{ fontSize: '0.72rem' }}>{s}</span>
-                ))}
-              </div>
-            </div>
-
-            {matchingLoading ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
-                Running skill vector matching against nationwide trainee database...
-              </div>
-            ) : matchingResults?.topMatches?.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                No active candidates found matching these exact competencies.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                {matchingResults?.topMatches?.map((c: any, idx: number) => (
-                  <div 
-                    key={idx}
-                    className="card"
-                    style={{ 
-                      padding: '1rem 1.25rem', 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: c.matchScore >= 80 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-glass)',
-                      flexWrap: 'wrap',
-                      gap: '1rem'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      {/* Score Badge */}
-                      <div style={{ 
-                        width: '54px', 
-                        height: '54px', 
-                        borderRadius: '50%', 
-                        background: c.matchScore >= 80 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                        border: `2px solid ${c.matchScore >= 80 ? '#10b981' : '#f59e0b'}`,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        <span style={{ fontSize: '0.9rem', fontWeight: 700, color: c.matchScore >= 80 ? '#34d399' : '#fbbf24' }}>
-                          {c.matchScore}%
-                        </span>
-                        <span style={{ fontSize: '0.55rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Match</span>
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <h4 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>{c.name}</h4>
-                          <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{c.grade || 'Verified'}</span>
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                          {c.district} • {c.institute} • Trainee ID: {c.traineeId}
-                        </div>
-
-                        {/* Matching vs Missing Skills */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.4rem' }}>
-                          {c.matchingSkills?.map((ms: string, mIdx: number) => (
-                            <span 
-                              key={mIdx} 
-                              style={{ 
-                                fontSize: '0.68rem', 
-                                background: 'rgba(16, 185, 129, 0.15)', 
-                                color: '#6ee7b7', 
-                                border: '1px solid rgba(16, 185, 129, 0.3)',
-                                padding: '0.15rem 0.4rem',
-                                borderRadius: '4px'
-                              }}
-                            >
-                              ✓ {ms}
-                            </span>
-                          ))}
-                          {c.missingSkills?.map((ms: string, mIdx: number) => (
-                            <span 
-                              key={mIdx} 
-                              style={{ 
-                                fontSize: '0.68rem', 
-                                background: 'rgba(239, 68, 68, 0.1)', 
-                                color: '#fca5a5', 
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                padding: '0.15rem 0.4rem',
-                                borderRadius: '4px'
-                              }}
-                            >
-                              - {ms}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button 
-                        className="btn btn-secondary" 
-                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem' }}
-                        onClick={() => alert(`Contact Trainee: ${c.name} at ${c.phone} or ${c.email}`)}
-                      >
-                        Contact
-                      </button>
-                      <button 
-                        className="btn btn-primary" 
-                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem' }}
-                        onClick={() => {
-                          alert(`Placement interview offer extended to ${c.name} for ${selectedJobForMatching.title}!`);
-                        }}
-                      >
-                        Offer Placement
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-              <button className="btn btn-secondary" onClick={() => setSelectedJobForMatching(null)}>
-                Close Engine
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Post New Job Modal */}
-      {showPostJobModal && (
-        <div className="modal-overlay" onClick={() => setShowPostJobModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Plus size={20} color="var(--primary-light)" />
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>
-                  Publish Cooperative Vacancy
-                </h2>
-              </div>
-              <button className="btn-ghost" onClick={() => setShowPostJobModal(false)}>✕</button>
-            </div>
-
-            <form onSubmit={handlePostJob} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                    Job Role Title *
-                  </label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    required 
-                    value={title} 
-                    onChange={(e) => setTitle(e.target.value)} 
-                    placeholder="e.g. PACS Secretary & Auditor" 
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                    Hiring Cooperative / Entity *
-                  </label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    required 
-                    value={company} 
-                    onChange={(e) => setCompany(e.target.value)} 
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                    Location / District *
-                  </label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    required 
-                    value={location} 
-                    onChange={(e) => setLocation(e.target.value)} 
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                    Employment Nature *
-                  </label>
-                  <select 
-                    className="input-field" 
-                    value={type} 
-                    onChange={(e) => setType(e.target.value)}
-                  >
-                    <option value="FULL_TIME">Full Time</option>
-                    <option value="APPRENTICESHIP">Apprenticeship</option>
-                    <option value="CONTRACT">Contractual (FPO)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                    Remuneration Range
-                  </label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    value={salaryRange} 
-                    onChange={(e) => setSalaryRange(e.target.value)} 
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                  Target NCCT Competencies (Comma-separated) *
-                </label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  required 
-                  value={skillsInput} 
-                  onChange={(e) => setSkillsInput(e.target.value)} 
-                  placeholder="PACS Accounting, Tally ERP, Cooperative Law" 
-                />
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  Our AI engine matches against trainees with verified course completions in these skills.
-                </span>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                  Role Description & Scope
-                </label>
-                <textarea 
-                  className="input-field" 
-                  rows={3} 
-                  value={description} 
-                  onChange={(e) => setDescription(e.target.value)} 
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowPostJobModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Publish to National Exchange
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+      <PostJobModal open={postOpen} onClose={() => setPostOpen(false)} role={role}
+        ownEmployerId={employerProfile.data?.employer?.id} employers={employers.data ?? []}
+        onPosted={() => { setPostOpen(false); jobs.reload(); toast.success('Vacancy posted', 'It is now open for applications and skill matching.'); }} />
+      <CandidatesDrawer job={matchJob} onClose={() => setMatchJob(null)} />
+      <ApplicationsDrawer job={appsJob} onClose={() => setAppsJob(null)} />
+    </>
   );
-};
+}
+
+/* ---------------------------------------------------------------- Post job */
+function PostJobModal({ open, onClose, role, ownEmployerId, employers, onPosted }: {
+  open: boolean; onClose: () => void; role: string; ownEmployerId?: string; employers: any[]; onPosted: () => void;
+}) {
+  const toast = useToast();
+  const [employerId, setEmployerId] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [skills, setSkills] = useState('');
+  const [location, setLocation] = useState('');
+  const [vacancies, setVacancies] = useState('1');
+  const [salaryRange, setSalaryRange] = useState('');
+  const [deadline, setDeadline] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const effectiveEmployer = role === 'RECRUITER' ? ownEmployerId : employerId;
+  const requiredSkills = skills.split(',').map((s) => s.trim()).filter(Boolean);
+  const valid = !!effectiveEmployer && title.trim() && description.trim() && location.trim() && requiredSkills.length > 0 && Number(vacancies) >= 1;
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!valid) return;
+    setBusy(true);
+    try {
+      await api.employment.postJob({
+        employerId: effectiveEmployer, title: title.trim(), description: description.trim(), requiredSkills,
+        location: location.trim(), vacancies: Number(vacancies),
+        ...(salaryRange.trim() && { salaryRange: salaryRange.trim() }),
+        ...(deadline && { deadline: new Date(deadline).toISOString() }),
+      });
+      setTitle(''); setDescription(''); setSkills(''); setLocation(''); setVacancies('1'); setSalaryRange(''); setDeadline('');
+      onPosted();
+    } catch (err) {
+      toast.error('Could not post the vacancy', err instanceof Error ? err.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Post a vacancy" width={620}>
+      <form className="form-grid" onSubmit={submit}>
+        {role !== 'RECRUITER' && (
+          <div className="field span-2">
+            <label htmlFor="pj-emp">Employer</label>
+            <select id="pj-emp" required value={employerId} onChange={(e) => setEmployerId(e.target.value)}>
+              <option value="">Select an employer…</option>
+              {employers.map((emp: any) => <option key={emp.id} value={emp.id}>{emp.companyName}</option>)}
+            </select>
+          </div>
+        )}
+        <div className="field span-2"><label htmlFor="pj-title">Role title</label><input id="pj-title" required value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+        <div className="field span-2"><label htmlFor="pj-desc">Description</label><textarea id="pj-desc" rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+        <div className="field span-2">
+          <label htmlFor="pj-skills">Required skills <span className="cell-sub">— comma separated, matched against verified trainee skills</span></label>
+          <input id="pj-skills" required value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="PACS Accounting, Digital Payments & UPI Integration" />
+          {requiredSkills.length > 0 && <ul className="skill-chips">{requiredSkills.map((s) => <li key={s}>{s}</li>)}</ul>}
+        </div>
+        <div className="field"><label htmlFor="pj-loc">Location</label><input id="pj-loc" required value={location} onChange={(e) => setLocation(e.target.value)} /></div>
+        <div className="field"><label htmlFor="pj-vac">Vacancies</label><input id="pj-vac" type="number" min={1} required value={vacancies} onChange={(e) => setVacancies(e.target.value)} /></div>
+        <div className="field"><label htmlFor="pj-sal">Salary range <span className="cell-sub">(optional)</span></label><input id="pj-sal" value={salaryRange} onChange={(e) => setSalaryRange(e.target.value)} /></div>
+        <div className="field"><label htmlFor="pj-dl">Application deadline <span className="cell-sub">(optional)</span></label><input id="pj-dl" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} /></div>
+        {role === 'RECRUITER' && !ownEmployerId && <p className="form-error span-2" role="alert">Your employer profile could not be loaded, so a vacancy can't be posted yet.</p>}
+        <div className="form-actions span-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" variant="primary" loading={busy} disabled={!valid}>Post vacancy</Button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/* --------------------------------------------------------------- Candidates */
+function CandidatesDrawer({ job, onClose }: { job: any | null; onClose: () => void }) {
+  const state = useAsync<MatchResult | null>(() => (job ? api.employment.matchCandidates(job.id) : Promise.resolve(null)), [job?.id]);
+  const req: string[] = state.data?.job.requiredSkills ?? job?.requiredSkills ?? [];
+  return (
+    <Drawer open={!!job} onClose={onClose} title={job ? `Candidates · ${job.title}` : 'Candidates'} width={720}>
+      {state.loading ? <LoadingBlock label="Scoring candidates" /> : state.error ? <ErrorState detail={state.error} onRetry={state.reload} /> : !state.data || state.data.topMatches.length === 0 ? (
+        <EmptyState title="No candidate holds a matching skill yet" detail="Candidates appear once they earn a verified skill that this role requires." />
+      ) : (
+        <>
+          <p className="cell-sub">{state.data.topMatches.length} matching of {state.data.totalCandidatesEvaluated} evaluated. Score = share of required skills the candidate holds.</p>
+          <MatchNetwork jobTitle={state.data.job.title} required={state.data.job.requiredSkills} candidates={state.data.topMatches.map((c) => ({ id: c.traineeId, name: c.name, score: c.matchScorePercent, matched: c.matchedSkills, certified: c.hasCertificates }))} />
+          <ul className="cand-list">
+            {state.data.topMatches.map((c) => {
+              const missing = req.filter((r) => !holds(c.matchedSkills, r));
+              return (
+                <li key={c.traineeId}>
+                  <div className="cand-top">
+                    <div>
+                      <strong className="cell-strong">{c.name}</strong>
+                      <div className="cell-sub">{[c.cooperativeAffiliation, c.district, c.state].filter(Boolean).join(' · ') || c.traineeCode}</div>
+                    </div>
+                    {c.hasCertificates && <Badge tone="green" dot>{c.certificatesEarnedCount} certified</Badge>}
+                  </div>
+                  <div className="score" role="img" aria-label={`${c.matchScorePercent}% match`}><div className="mini-bar"><i style={{ width: `${c.matchScorePercent}%` }} /></div><span className="num">{c.matchScorePercent}%</span></div>
+                  <ul className="skill-chips">
+                    {c.matchedSkills.map((s) => <li key={s} className="is-held"><BadgeCheck size={12} aria-hidden />{s}</li>)}
+                    {missing.map((s) => <li key={s} className="is-missing">{s}</li>)}
+                  </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </Drawer>
+  );
+}
+
+/* ------------------------------------------------------------- Applications */
+function ApplicationsDrawer({ job, onClose }: { job: any | null; onClose: () => void }) {
+  const toast = useToast();
+  const state = useAsync(() => (job ? api.employment.getApplications(job.id) : Promise.resolve([] as any[])), [job?.id]);
+  const [placing, setPlacing] = useState<any | null>(null);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [pkg, setPkg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const record = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!placing || !job) return;
+    setBusy(true);
+    try {
+      await api.employment.recordOutcome({
+        traineeId: placing.traineeId, employerName: job.employer?.companyName, jobTitle: job.title,
+        placementDate: new Date(date).toISOString(), ...(pkg && { annualPackage: Number(pkg) }),
+      });
+      toast.success('Placement recorded', 'It now counts toward the employment-linkage figure.');
+      setPlacing(null); setPkg('');
+    } catch (err) {
+      toast.error('Could not record the placement', err instanceof Error ? err.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Drawer open={!!job} onClose={onClose} title={job ? `Applications · ${job.title}` : 'Applications'} width={520}>
+        {state.loading ? <LoadingBlock label="Loading applications" /> : state.error ? <ErrorState detail={state.error} onRetry={state.reload} /> : (state.data ?? []).length === 0 ? (
+          <EmptyState title="No applications yet" />
+        ) : (
+          <ul className="cand-list">
+            {(state.data ?? []).map((a: any) => (
+              <li key={a.id}>
+                <div className="cand-top">
+                  <div><strong className="cell-strong">{a.trainee?.user?.firstName} {a.trainee?.user?.lastName}</strong><div className="cell-sub">Applied {fmtDate(a.appliedAt ?? a.createdAt)}</div></div>
+                  <Badge tone={statusTone(a.status)} dot>{String(a.status).replace('_', ' ')}</Badge>
+                </div>
+                <div className="score" role="img" aria-label={`${a.matchScore}% match`}><div className="mini-bar"><i style={{ width: `${a.matchScore ?? 0}%` }} /></div><span className="num">{a.matchScore ?? 0}%</span></div>
+                <Button size="sm" onClick={() => setPlacing(a)}>Record placement</Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Drawer>
+      <Modal open={!!placing} onClose={() => setPlacing(null)} title="Record a placement" width={460}>
+        <form className="form-grid" onSubmit={record}>
+          <p className="cell-sub span-2">Confirm that {placing?.trainee?.user?.firstName} {placing?.trainee?.user?.lastName} was placed as <strong>{job?.title}</strong> at {job?.employer?.companyName}.</p>
+          <div className="field"><label htmlFor="pl-date">Placement date</label><input id="pl-date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} /></div>
+          <div className="field"><label htmlFor="pl-pkg">Annual package (₹) <span className="cell-sub">optional</span></label><input id="pl-pkg" type="number" min={0} value={pkg} onChange={(e) => setPkg(e.target.value)} /></div>
+          <div className="form-actions span-2"><Button type="button" variant="ghost" onClick={() => setPlacing(null)}>Cancel</Button><Button type="submit" variant="primary" loading={busy}>Record placement</Button></div>
+        </form>
+      </Modal>
+    </>
+  );
+}

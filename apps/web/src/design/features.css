@@ -1,0 +1,137 @@
+/* ------------------------------------------------------- Talent matching network */
+.mn-wrap { overflow-x: auto; }
+.mn { width: 100%; min-width: 680px; height: auto; }
+.mn-col { fill: var(--text-tertiary); font: 500 10px var(--font-sans); letter-spacing: 0.18em; }
+.mn-edge { fill: none; stroke-width: 1.4; }
+.mn-edge-job { stroke: rgba(79, 191, 179, 0.5); }
+.mn-edge-match { stroke: var(--accent-primary); transition: opacity 0.3s; }
+.mn-edge-match.is-on { stroke-width: 2.4; filter: drop-shadow(0 0 4px rgba(78, 99, 255, 0.7)); }
+.mn-job { fill: var(--accent-primary-soft); stroke: rgba(78, 99, 255, 0.55); }
+.mn-job-t { fill: var(--accent-primary-strong); font: 600 12.5px var(--font-sans); }
+.mn-sub { fill: var(--text-tertiary); font: 400 10.5px var(--font-sans); }
+.mn-skill { fill: var(--surface-elevated); stroke: rgba(79, 191, 179, 0.45); }
+.mn-skill-t { fill: var(--text-primary); font: 500 11.5px var(--font-sans); }
+.mn-cand { cursor: pointer; }
+.mn-cand-box { fill: var(--surface-elevated); stroke: var(--border-default); transition: stroke 0.2s; }
+.mn-cand-box.is-on, .mn-cand:focus-visible .mn-cand-box { stroke: var(--accent-primary); }
+.mn-cand-name { fill: var(--text-primary); font: 500 12px var(--font-sans); }
+.mn-bar { fill: var(--surface-sunken); } .mn-bar-fill { fill: var(--accent-secondary); }
+.mn-score { fill: var(--text-secondary); font: 500 11px var(--font-data); }
+.mn-cert { fill: var(--accent-success); font: 700 13px var(--font-sans); }
+
+/* ------------------------------------------------------ Employment story strip */
+.story { margin-bottom: 22px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); }
+.story .eyebrow { margin-bottom: 14px; }
+
+/* -------------------------------------------------------- Career pathway */
+.pathway { display: grid; gap: 14px; }
+.pathway h4 { font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-tertiary); font-weight: 500; }
+.path-job { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--border-subtle); }
+.path-job .score { min-width: 0; }
+.path-empty { font-size: 13px; color: var(--text-tertiary); }
+
+/* --------------------------------------------------------- Timetable timeline */
+.dayline { display: grid; gap: 0; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); overflow: hidden; }
+.dayline-scroll { overflow-x: auto; }
+.dayline-grid { position: relative; min-width: 720px; }
+.dayline-axis { display: grid; grid-template-columns: 150px 1fr; border-bottom: 1px solid var(--border-subtle); background: var(--surface-sunken); }
+.dayline-hours { position: relative; height: 30px; }
+.dayline-hours span { position: absolute; top: 8px; transform: translateX(-50%); font-size: 10.5px; color: var(--text-tertiary); letter-spacing: 0.06em; }
+.dayline-lane { display: grid; grid-template-columns: 150px 1fr; border-bottom: 1px solid var(--border-subtle); min-height: 64px; }
+.dayline-lane:last-child { border-bottom: 0; }
+.dayline-label { padding: 12px 14px; font-size: 12.5px; color: var(--text-secondary); border-right: 1px solid var(--border-subtle); }
+.dayline-label small { display: block; color: var(--text-tertiary); font-size: 11px; }
+.dayline-track { position: relative; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(100% / var(--hours) - 1px), var(--border-subtle) calc(100% / var(--hours) - 1px), var(--border-subtle) calc(100% / var(--hours))); }
+.dayline-block { position: absolute; top: 8px; bottom: 8px; padding: 6px 9px; border-radius: 9px; background: var(--accent-secondary-soft); border: 1px solid rgba(79, 191, 179, 0.5); border-left-width: 3px; font-size: 11.5px; line-height: 1.3; overflow: hidden; }
+.dayline-block strong { display: block; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dayline-block span { color: var(--text-tertiary); }
+.dayline-block.is-draft { background: var(--accent-primary-soft); border-color: rgba(78, 99, 255, 0.7); border-style: dashed; }
+.dayline-block.is-conflict { background: var(--accent-danger-soft); border-color: rgba(221, 107, 95, 0.8); animation: conflictPulse 1.6s ease-in-out infinite; }
+@keyframes conflictPulse { 50% { box-shadow: 0 0 0 3px rgba(221, 107, 95, 0.18); } }
+.conflicts { display: grid; gap: 8px; }
+.conflict { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--accent-danger-soft); border: 1px solid rgba(221, 107, 95, 0.4); font-size: 13px; }
+.conflict strong { color: var(--accent-danger); letter-spacing: 0.08em; font-size: 11px; display: block; }
+.conflict-ok { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--accent-success); }
+.view-switch { display: inline-flex; padding: 3px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--surface-sunken); }
+.view-switch button { padding: 6px 14px; border-radius: var(--radius-full); font-size: 12.5px; color: var(--text-secondary); }
+.view-switch button.is-active { background: var(--surface-elevated); color: var(--text-primary); box-shadow: inset 0 0 0 1px var(--border-default); }
+
+/* ------------------------------------------------------------ Hostel capacity */
+.capbar { display: grid; gap: 8px; }
+.capbar-track { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--surface-elevated); gap: 2px; }
+.capbar-track i { display: block; height: 100%; transition: flex var(--dur-slow) var(--ease-out); }
+.capbar-track .occ { background: var(--accent-primary); } .capbar-track .avail { background: var(--accent-secondary); } .capbar-track .maint { background: var(--accent-warning); }
+.capbar-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+.capbar-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+/* ------------------------------------------------------------- Hierarchy ladder */
+.ladder { list-style: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0; overflow-x: auto; padding: 4px 0 8px; }
+.ladder li { position: relative; display: grid; justify-items: center; gap: 6px; text-align: center; min-width: 96px; padding: 0 4px; }
+.ladder-node { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-elevated); border: 1px solid var(--border-strong); position: relative; z-index: 1; color: var(--accent-secondary); }
+.ladder li.is-off .ladder-node { border-style: dashed; color: var(--text-tertiary); }
+.ladder-count { font-size: 1.6rem; line-height: 1; letter-spacing: -0.03em; }
+.ladder-name { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-secondary); }
+.ladder-sub { font-size: 11px; color: var(--text-tertiary); }
+.ladder-link { position: absolute; top: 23px; left: calc(50% + 32px); right: calc(-50% + 32px); height: 1px; background: var(--border-default); overflow: hidden; }
+.ladder-link b { position: absolute; top: -1px; left: 0; width: 26%; height: 3px; border-radius: 3px; background: linear-gradient(90deg, transparent, var(--accent-primary), transparent); }
+
+/* ---------------------------------------------------------- Attendance cinematic */
+.qr-formation { position: relative; width: 232px; height: 232px; display: grid; place-items: center; }
+.qr-formation canvas { width: 196px; height: 196px; border-radius: 10px; }
+.qr-scanline { position: absolute; left: 18px; right: 18px; height: 2px; background: linear-gradient(90deg, transparent, var(--accent-secondary), transparent); box-shadow: 0 0 14px var(--accent-secondary); border-radius: 2px; }
+.qr-state { font-family: var(--font-data); font-size: 11.5px; letter-spacing: 0.22em; }
+.qr-state.invalidating { color: var(--accent-danger); } .qr-state.generating { color: var(--accent-warning); } .qr-state.verified { color: var(--accent-success); }
+.qr-ticks { position: absolute; inset: 0; pointer-events: none; }
+.checkin { display: grid; gap: 18px; justify-items: center; padding: 10px 0; }
+.checkin svg { width: min(520px, 100%); height: auto; overflow: visible; }
+.ck-node { fill: var(--surface-elevated); stroke: var(--border-strong); stroke-width: 1.4; transition: all 0.5s var(--ease-out); }
+.ck-node.on { stroke: var(--accent-secondary); fill: var(--accent-secondary-soft); }
+.ck-node.done { stroke: var(--accent-success); fill: var(--accent-success-soft); }
+.ck-label { fill: var(--text-secondary); font: 500 10.5px var(--font-sans); letter-spacing: 0.16em; text-anchor: middle; }
+.ck-line { stroke: var(--border-default); stroke-width: 1.5; fill: none; }
+.ck-line-on { stroke: var(--accent-secondary); stroke-width: 2.2; fill: none; filter: drop-shadow(0 0 4px rgba(79, 191, 179, 0.7)); }
+.ck-ring { fill: none; stroke: var(--accent-success); stroke-width: 3; stroke-linecap: round; }
+.ck-caption { font-family: var(--font-data); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-secondary); min-height: 1.4em; }
+
+.slot-clash { border-left-color: var(--accent-danger); background: var(--accent-danger-soft); }
+.slot-flag { margin-top: 4px; justify-self: start; }
+
+/* Rail proximity, registrations, hostel bar */
+.rail-item { --prox: 0; background: rgba(236, 232, 223, calc(var(--prox) * 0.05)); }
+.rail-icon { transform: translateX(calc(var(--prox) * 3px)) scale(calc(1 + var(--prox) * 0.16)); transition: transform 0.18s var(--ease-out); }
+.rail--near:not(.rail--open) { width: 76px; }
+.rail--near .rail-icon { color: var(--text-primary); }
+.rail-item.is-active .rail-icon { filter: drop-shadow(0 0 6px rgba(78, 99, 255, 0.55)); }
+.reg-item { display: grid !important; gap: 12px; }
+.reg-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.capwrap { width: 100%; margin-top: 18px; }
+.ambient { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.shell-content { position: relative; }
+
+/* Attendance: live credential */
+.qr-frame-live { width: 260px; height: 260px; }
+.qr-frame-live .qr-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+.qr-orbit { transform-origin: 125px 125px; animation: orbit 40s linear infinite; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+.qr-pulse { position: absolute; inset: 22px; border-radius: 50%; border: 1px solid var(--accent-secondary); opacity: 0; animation: qrPulse 3.2s var(--ease-out) infinite; pointer-events: none; }
+@keyframes qrPulse { 0% { transform: scale(0.88); opacity: 0.5; } 100% { transform: scale(1.12); opacity: 0; } }
+.qr-scanline { animation: qrScan 2.6s ease-in-out infinite; top: 10px; }
+@keyframes qrScan { 0%, 100% { transform: translateY(0); opacity: 0; } 12%, 88% { opacity: 1; } 50% { transform: translateY(170px); } }
+.qr-key { letter-spacing: 0.06em; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.face-h { margin: 22px 0 12px; }
+@media (prefers-reduced-motion: reduce) { .qr-orbit, .qr-pulse, .qr-scanline { animation: none; } }
+
+.explorer-list, .explorer-list li { min-width: 0; }
+.explorer-list button { max-width: 100%; }
+.explorer-panel { min-width: 0; }
+
+.identity { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.identity > * { min-width: 0; }
+.drawer .modal-body { min-width: 0; overflow-x: hidden; }
+.identity .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Learning identity on phones: a 3 × 2 grid instead of a clipped strip */
+@media (max-width: 560px) {
+  .idpath { position: static; grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 0; overflow: visible; }
+  .idpath-link { display: none; }
+}

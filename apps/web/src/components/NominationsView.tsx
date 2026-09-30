@@ -1,287 +1,253 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ClipboardList,
-  CheckCircle,
-  XCircle,
-  Clock,
-  UserCheck,
-  Building,
-  User,
-  Plus,
-} from 'lucide-react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { CheckCircle2, Clock3, ClipboardList, UserPlus, XCircle } from 'lucide-react';
 import { api } from '../api/client';
-import { ProgrammeRegistration, TrainingProgramme } from '../types';
+import { useAsync } from '../lib/useAsync';
+import { useToast } from '../state/toast';
+import type { UserPersona } from '../types';
+import { Modal } from '../ui/Modal';
+import { Field } from '../ui/Field';
+import { Badge, Button, EmptyState, ErrorState, LoadingBlock, PageHeader, Surface } from '../ui/primitives';
+import { ProgrammeLifecycle, type ProgrammeStage } from '../ui/Lifecycle';
+import { fmtDate, statusTone } from '../features/home/shared';
 
-interface NominationsViewProps {
-  canApprove?: boolean;
+const FILTERS = ['ALL', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'WAITLISTED', 'ENROLLED', 'REJECTED'] as const;
+const pretty = (s: string) => s.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+/** Where a registration sits on DISCOVER → … → CERTIFY. */
+function stageOf(n: any): ProgrammeStage {
+  switch (n.status) {
+    case 'SUBMITTED': case 'UNDER_REVIEW': case 'REJECTED': case 'DRAFT': return 'NOMINATE';
+    case 'APPROVED': case 'WAITLISTED': return 'APPROVE';
+    case 'ENROLLED': return n.programme?.status === 'ONGOING' ? 'TRAIN' : 'ENROLL';
+    case 'COMPLETED': return 'CERTIFY';
+    default: return 'DISCOVER';
+  }
+}
+const personName = (n: any) => (n.trainee?.user ? `${n.trainee.user.firstName} ${n.trainee.user.lastName}` : n.trainee?.traineeCode ?? 'Trainee');
+
+export function NominationsView({ currentPersona }: { currentPersona: UserPersona }) {
+  return currentPersona.role === 'TRAINEE' ? <TraineeRegistrations /> : <ReviewDesk />;
 }
 
-export const NominationsView: React.FC<NominationsViewProps> = ({ canApprove = true }) => {
-  const [nominations, setNominations] = useState<ProgrammeRegistration[]>([]);
-  const [programmes, setProgrammes] = useState<TrainingProgramme[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [selectedProgrammeId, setSelectedProgrammeId] = useState('');
-  const [remarks, setRemarks] = useState('');
+/* ------------------------------------------------------------ Review desk */
+function ReviewDesk() {
+  const toast = useToast();
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('ALL');
+  const noms = useAsync(() => api.nominations.list(), []);
+  const progs = useAsync(() => api.programmes.list(), []);
+  const certs = useAsync(() => api.certifications.list().catch(() => [] as any[]), []);
+  const [decision, setDecision] = useState<{ nomination: any; status: string } | null>(null);
+  const [nominateOpen, setNominateOpen] = useState(false);
 
-  const fetchNominations = async () => {
-    setLoading(true);
+  const rows = useMemo(() => (noms.data ?? []).filter((n: any) => filter === 'ALL' || n.status === filter), [noms.data, filter]);
+  const counts = (s: string) => (noms.data ?? []).filter((n: any) => n.status === s).length;
+
+  const quick = async (n: any, status: string) => {
     try {
-      const [noms, progs] = await Promise.all([
-        api.nominations.list(),
-        api.programmes.list(),
-      ]);
-      setNominations(noms || []);
-      setProgrammes(progs || []);
-      if (progs && progs.length > 0 && !selectedProgrammeId) {
-        setSelectedProgrammeId(progs[0].id);
-      }
-    } catch (err) {
-      console.error('Failed to load nominations', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchNominations();
-  }, []);
-
-  const handleUpdateStatus = async (id: string, status: string) => {
-    try {
-      await api.nominations.updateStatus(id, status, undefined, `Status updated to ${status}`);
-      fetchNominations();
-    } catch (err: any) {
-      alert(`Error updating nomination status: ${err.message}`);
-    }
-  };
-
-  const handleRegisterSelf = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProgrammeId) return;
-    try {
-      await api.nominations.registerSelf({
-        programmeId: selectedProgrammeId,
-        remarks,
-      });
-      setShowRegisterModal(false);
-      setRemarks('');
-      fetchNominations();
-    } catch (err: any) {
-      alert(`Registration failed: ${err.message}`);
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'ENROLLED':
-      case 'APPROVED':
-        return <span className="badge badge-emerald">✓ {status}</span>;
-      case 'SUBMITTED':
-      case 'UNDER_REVIEW':
-        return <span className="badge badge-gold">⏳ {status}</span>;
-      case 'WAITLISTED':
-        return <span className="badge badge-cyan">⏸ WAITLISTED</span>;
-      case 'REJECTED':
-      case 'CANCELLED':
-        return <span className="badge badge-rose">✕ {status}</span>;
-      default:
-        return <span className="badge badge-indigo">{status}</span>;
+      await api.nominations.updateStatus(n.id, status);
+      toast.success(`Marked ${pretty(status).toLowerCase()}`, personName(n));
+      noms.reload();
+    } catch (e) {
+      toast.error('Could not update the application', e instanceof Error ? e.message : undefined);
     }
   };
 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span className="badge badge-emerald">Admissions Workflow</span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>• Nominations & Enrolments</span>
-          </div>
-          <h2 style={{ fontSize: '1.75rem', color: '#ffffff', marginTop: '0.25rem' }}>
-            Online Registrations & Institutional Nominations
-          </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Two-track admission pipeline supporting grassroots self-enrolment and institutional PACS nominations.
-          </p>
-        </div>
+    <>
+      <PageHeader eyebrow="Registration & nomination" title={<>Who gets a <em className="serif-em">seat</em></>}
+        description="Self-registrations and institutional nominations, from submission to enrolment."
+        actions={<Button variant="primary" icon={<UserPlus size={15} />} onClick={() => setNominateOpen(true)}>Nominate a trainee</Button>} />
 
-        <button onClick={() => setShowRegisterModal(true)} className="btn btn-primary">
-          <Plus size={16} />
-          <span>Register for Programme</span>
-        </button>
+      <Surface eyebrow="Programme lifecycle" title="Where everyone stands">
+        <ProgrammeLifecycle stages={{
+          DISCOVER: { count: (progs.data ?? []).length, hint: 'Programmes open' },
+          NOMINATE: { count: counts('SUBMITTED') + counts('UNDER_REVIEW'), hint: 'Awaiting review' },
+          APPROVE: { count: counts('APPROVED') + counts('WAITLISTED'), hint: 'Approved or waitlisted' },
+          ENROLL: { count: counts('ENROLLED'), hint: 'In a batch' },
+          TRAIN: { count: (noms.data ?? []).filter((n: any) => n.status === 'ENROLLED' && n.programme?.status === 'ONGOING').length, hint: 'Programme under way' },
+          ASSESS: { state: 'unavailable', hint: 'Not in the API yet' },
+          CERTIFY: { count: (certs.data ?? []).length, hint: 'Credentials issued' },
+        } as Partial<Record<ProgrammeStage, { count?: number; state?: 'live' | 'unavailable'; hint?: string }>>} />
+      </Surface>
+      <div style={{ height: 16 }} />
+
+      <div className="filter-row" role="group" aria-label="Filter by status">
+        {FILTERS.map((s) => (
+          <button key={s} className={`filter-chip${filter === s ? ' is-active' : ''}`} aria-pressed={filter === s} onClick={() => setFilter(s)}>
+            {s === 'ALL' ? 'All' : pretty(s)}{s !== 'ALL' && <span className="num filter-count">{counts(s)}</span>}
+          </button>
+        ))}
       </div>
 
-      {/* Nominations Table */}
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
-            <thead>
-              <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <th style={{ padding: '1rem 1.25rem', color: 'var(--text-dim)', fontWeight: 600 }}>Trainee / Candidate</th>
-                <th style={{ padding: '1rem 1.25rem', color: 'var(--text-dim)', fontWeight: 600 }}>Affiliation</th>
-                <th style={{ padding: '1rem 1.25rem', color: 'var(--text-dim)', fontWeight: 600 }}>Nomination Type</th>
-                <th style={{ padding: '1rem 1.25rem', color: 'var(--text-dim)', fontWeight: 600 }}>Status</th>
-                <th style={{ padding: '1rem 1.25rem', color: 'var(--text-dim)', fontWeight: 600 }}>Registration Date</th>
-                {canApprove && (
-                  <th style={{ padding: '1rem 1.25rem', color: 'var(--text-dim)', fontWeight: 600, textAlign: 'right' }}>
-                    Actions
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {nominations.map((n) => (
-                <tr
-                  key={n.id}
-                  style={{
-                    borderBottom: '1px solid var(--border-subtle)',
-                    transition: 'var(--transition)',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <td style={{ padding: '1rem 1.25rem' }}>
-                    <div style={{ fontWeight: 600, color: '#ffffff' }}>
-                      {n.trainee?.user?.firstName} {n.trainee?.user?.lastName}
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                      {n.trainee?.traineeCode || 'TRN-2026'} • {n.trainee?.user?.email}
-                    </div>
-                  </td>
-
-                  <td style={{ padding: '1rem 1.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary-300)' }}>
-                      <Building size={14} />
-                      <span>{n.trainee?.cooperativeName || 'Warangal District PACS'}</span>
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                      {n.trainee?.traineeType || 'RURAL_YOUTH'}
-                    </div>
-                  </td>
-
-                  <td style={{ padding: '1rem 1.25rem' }}>
-                    <span className={`badge ${n.nominationType === 'INSTITUTIONAL' ? 'badge-gold' : 'badge-cyan'}`}>
-                      {n.nominationType}
-                    </span>
-                  </td>
-
-                  <td style={{ padding: '1rem 1.25rem' }}>{getStatusBadge(n.status)}</td>
-
-                  <td style={{ padding: '1rem 1.25rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    {new Date(n.createdAt).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </td>
-
-                  {canApprove && (
-                    <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
-                        {n.status !== 'APPROVED' && n.status !== 'ENROLLED' && (
-                          <button
-                            onClick={() => handleUpdateStatus(n.id, 'APPROVED')}
-                            className="btn btn-primary btn-sm"
-                            title="Approve candidate"
-                          >
-                            <CheckCircle size={14} />
-                            <span>Approve</span>
-                          </button>
-                        )}
-                        {n.status === 'APPROVED' && (
-                          <button
-                            onClick={() => handleUpdateStatus(n.id, 'ENROLLED')}
-                            className="btn btn-gold btn-sm"
-                            title="Enroll into active batch"
-                          >
-                            <UserCheck size={14} />
-                            <span>Enroll Batch</span>
-                          </button>
-                        )}
-                        {n.status !== 'REJECTED' && (
-                          <button
-                            onClick={() => handleUpdateStatus(n.id, 'REJECTED')}
-                            className="btn btn-danger btn-sm"
-                            title="Reject application"
-                          >
-                            <XCircle size={14} />
-                          </button>
-                        )}
+      <Surface pad={false}>
+        {noms.loading && !noms.data ? <LoadingBlock label="Loading applications" /> : noms.error ? <ErrorState detail={noms.error} onRetry={noms.reload} /> : rows.length === 0 ? (
+          <EmptyState icon={<ClipboardList size={22} />} title={filter === 'ALL' ? 'No applications yet' : `Nothing ${pretty(filter).toLowerCase()}`} detail={filter === 'ALL' ? 'Applications appear when trainees register or institutions nominate them.' : undefined} />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Trainee</th><th>Programme</th><th>Route</th><th>Submitted</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
+              <tbody>
+                {rows.map((n: any) => (
+                  <tr key={n.id}>
+                    <td><strong className="cell-strong">{personName(n)}</strong><div className="cell-sub">{n.trainee?.cooperativeName ?? n.trainee?.traineeCode}</div></td>
+                    <td>{n.programme?.title}<div className="cell-sub num">{n.programme?.code}</div></td>
+                    <td>{n.nominationType === 'SELF' ? 'Self-registered' : <>Nominated<div className="cell-sub">{n.nominatingOrgName}</div></>}</td>
+                    <td className="num">{fmtDate(n.createdAt)}</td>
+                    <td><Badge tone={statusTone(n.status)} dot>{pretty(n.status)}</Badge></td>
+                    <td>
+                      <div className="row-actions">
+                        {['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED'].includes(n.status) && <Button size="sm" variant="primary" icon={<CheckCircle2 size={13} />} onClick={() => quick(n, 'APPROVED')}>Approve</Button>}
+                        {['SUBMITTED', 'UNDER_REVIEW'].includes(n.status) && <Button size="sm" icon={<Clock3 size={13} />} onClick={() => quick(n, 'WAITLISTED')}>Waitlist</Button>}
+                        {n.status === 'APPROVED' && <Button size="sm" variant="primary" onClick={() => setDecision({ nomination: n, status: 'ENROLLED' })}>Enrol in batch</Button>}
+                        {!['REJECTED', 'ENROLLED', 'CANCELLED', 'COMPLETED'].includes(n.status) && <Button size="sm" variant="danger" icon={<XCircle size={13} />} onClick={() => setDecision({ nomination: n, status: 'REJECTED' })}>Reject</Button>}
                       </div>
                     </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Surface>
+
+      <DecisionModal state={decision} onClose={() => setDecision(null)} onDone={() => { setDecision(null); noms.reload(); }} />
+      <NominateModal open={nominateOpen} onClose={() => setNominateOpen(false)} onDone={() => { setNominateOpen(false); noms.reload(); }} />
+    </>
+  );
+}
+
+function DecisionModal({ state, onClose, onDone }: { state: { nomination: any; status: string } | null; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const n = state?.nomination;
+  const enrol = state?.status === 'ENROLLED';
+  const batches = useAsync(() => (n && enrol ? api.programmes.getBatches(n.programmeId) : Promise.resolve([] as any[])), [n?.id, enrol]);
+  const [batchId, setBatchId] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!n || !state) return;
+    setBusy(true);
+    try {
+      await api.nominations.updateStatus(n.id, state.status, enrol ? batchId : undefined, remarks.trim() || undefined);
+      toast.success(enrol ? 'Trainee enrolled' : 'Application rejected', personName(n));
+      setBatchId(''); setRemarks('');
+      onDone();
+    } catch (err) {
+      toast.error('Could not save the decision', err instanceof Error ? err.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={!!state} onClose={onClose} title={enrol ? 'Enrol into a batch' : 'Reject application'} width={480}>
+      <form className="form-grid" onSubmit={submit}>
+        <p className="cell-sub span-2"><strong>{n && personName(n)}</strong> · {n?.programme?.title}</p>
+        {enrol && (
+          <Field label="Batch" wide hint={batches.data && batches.data.length === 0 ? 'This programme has no batches. Create one under Programmes first.' : undefined}>
+            {(p) => <select {...p} required value={batchId} onChange={(e) => setBatchId(e.target.value)}><option value="">Select a batch…</option>{(batches.data ?? []).map((b: any) => <option key={b.id} value={b.id}>{b.name} ({b.batchCode})</option>)}</select>}
+          </Field>
+        )}
+        <Field label={enrol ? 'Remarks (optional)' : 'Reason (shared with the applicant)'} wide>{(p) => <textarea {...p} rows={3} required={!enrol} value={remarks} onChange={(e) => setRemarks(e.target.value)} />}</Field>
+        <div className="form-actions span-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" variant={enrol ? 'primary' : 'danger'} loading={busy} disabled={enrol && !batchId}>{enrol ? 'Enrol trainee' : 'Reject application'}</Button></div>
+      </form>
+    </Modal>
+  );
+}
+
+function NominateModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const trainees = useAsync(() => (open ? api.trainees.list() : Promise.resolve([] as any[])), [open]);
+  const programmes = useAsync(() => (open ? api.programmes.list() : Promise.resolve([] as any[])), [open]);
+  const [f, setF] = useState({ traineeId: '', programmeId: '', nominatingOrgName: '', nominatingOfficer: '', remarks: '' });
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof f, v: string) => setF((c) => ({ ...c, [k]: v }));
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.nominations.nominate(f.traineeId, { programmeId: f.programmeId, nominatingOrgName: f.nominatingOrgName.trim() || undefined, nominatingOfficer: f.nominatingOfficer.trim() || undefined, remarks: f.remarks.trim() || undefined });
+      toast.success('Nomination submitted');
+      setF({ traineeId: '', programmeId: '', nominatingOrgName: '', nominatingOfficer: '', remarks: '' });
+      onDone();
+    } catch (err) {
+      toast.error('Could not submit the nomination', err instanceof Error ? err.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Nominate a trainee" width={560}>
+      <form className="form-grid" onSubmit={submit}>
+        <Field label="Trainee" wide>{(p) => <select {...p} required value={f.traineeId} onChange={(e) => set('traineeId', e.target.value)}><option value="">Select a trainee…</option>{(trainees.data ?? []).map((t: any) => <option key={t.id} value={t.id}>{t.user?.firstName} {t.user?.lastName} · {t.traineeCode}</option>)}</select>}</Field>
+        <Field label="Programme" wide>{(p) => <select {...p} required value={f.programmeId} onChange={(e) => set('programmeId', e.target.value)}><option value="">Select a programme…</option>{(programmes.data ?? []).map((g: any) => <option key={g.id} value={g.id}>{g.title}</option>)}</select>}</Field>
+        <Field label="Nominating organisation">{(p) => <input {...p} value={f.nominatingOrgName} onChange={(e) => set('nominatingOrgName', e.target.value)} placeholder="e.g. a PACS or SHG federation" />}</Field>
+        <Field label="Nominating officer">{(p) => <input {...p} value={f.nominatingOfficer} onChange={(e) => set('nominatingOfficer', e.target.value)} />}</Field>
+        <Field label="Remarks" wide>{(p) => <textarea {...p} rows={2} value={f.remarks} onChange={(e) => set('remarks', e.target.value)} />}</Field>
+        <div className="form-actions span-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" variant="primary" loading={busy} disabled={!f.traineeId || !f.programmeId}>Submit nomination</Button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/* --------------------------------------------------------- Trainee's view */
+function TraineeRegistrations() {
+  const toast = useToast();
+  const mine = useAsync(() => api.nominations.mine(), []);
+  const programmes = useAsync(() => api.programmes.list(), []);
+  const [busy, setBusy] = useState<string | null>(null);
+  const registered = new Set((mine.data ?? []).map((n: any) => n.programmeId));
+
+  const register = async (p: any) => {
+    setBusy(p.id);
+    try {
+      await api.nominations.registerSelf({ programmeId: p.id });
+      toast.success('Registration submitted', `${p.title} — you'll be notified when it is reviewed.`);
+      mine.reload();
+    } catch (e) {
+      toast.error('Could not register', e instanceof Error ? e.message : undefined);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <>
+      <PageHeader eyebrow="My programmes" title={<>Find your next <em className="serif-em">programme</em></>} description="Register yourself; your institution reviews and confirms your seat." />
+      <div className="home-grid">
+        <div className="span-5">
+          <Surface eyebrow="My registrations" title="Where I stand">
+            {mine.loading && !mine.data ? <LoadingBlock /> : mine.error ? <ErrorState detail={mine.error} onRetry={mine.reload} /> : (mine.data ?? []).length === 0 ? <EmptyState title="No registrations yet" detail="Pick a programme on the right to apply." /> : (
+              <ul className="rows rows-flush">
+                {(mine.data ?? []).map((n: any) => (
+                  <li key={n.id} className="reg-item">
+                    <div className="reg-top"><div><strong className="cell-strong">{n.programme?.title}</strong><div className="cell-sub num">{fmtDate(n.programme?.startDate)} – {fmtDate(n.programme?.endDate)}</div>{n.remarks && <div className="cell-sub">“{n.remarks}”</div>}</div>
+                    <Badge tone={statusTone(n.status)} dot>{pretty(n.status)}</Badge></div>
+                    <ProgrammeLifecycle compact stages={{}} current={stageOf(n)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Surface>
+        </div>
+        <div className="span-7">
+          <Surface eyebrow="Open for registration" title="Programmes">
+            {programmes.loading && !programmes.data ? <LoadingBlock /> : programmes.error ? <ErrorState detail={programmes.error} onRetry={programmes.reload} /> : (programmes.data ?? []).length === 0 ? <EmptyState title="No programmes are open right now" /> : (
+              <ul className="rows rows-flush">
+                {(programmes.data ?? []).filter((p: any) => !['COMPLETED', 'CANCELLED'].includes(p.status)).map((p: any) => (
+                  <li key={p.id}>
+                    <div><strong className="cell-strong">{p.title}</strong><div className="cell-sub">{p.location} · {p.durationDays} days · {p.mode}</div><div className="cell-sub num">{fmtDate(p.startDate)} – {fmtDate(p.endDate)}</div></div>
+                    <Button size="sm" variant="primary" loading={busy === p.id} disabled={registered.has(p.id)} onClick={() => register(p)}>{registered.has(p.id) ? 'Registered' : 'Register'}</Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Surface>
         </div>
       </div>
-
-      {/* Register Self Modal */}
-      {showRegisterModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(4, 8, 16, 0.8)',
-            backdropFilter: 'blur(12px)',
-            padding: '1.5rem',
-          }}
-        >
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', padding: '2rem' }}>
-            <h3 style={{ fontSize: '1.35rem', color: '#ffffff', marginBottom: '1rem' }}>
-              Online Programme Self-Registration
-            </h3>
-            <form onSubmit={handleRegisterSelf} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Select Training Programme</label>
-                <select
-                  value={selectedProgrammeId}
-                  onChange={(e) => setSelectedProgrammeId(e.target.value)}
-                  required
-                >
-                  {programmes.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} ({p.durationDays} Days, {p.category})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Statement of Interest / PACS Remarks
-                </label>
-                <textarea
-                  rows={3}
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  placeholder="Explain why you wish to attend and how it benefits your local cooperative society..."
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterModal(false)}
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Submit Application
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
-};
+}

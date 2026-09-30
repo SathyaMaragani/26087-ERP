@@ -99,6 +99,24 @@ pnpm dev:web
 
 ---
 
+## 🎛️ Frontend Experience (`apps/web`)
+
+One cinematic entry into a working ERP, built on the existing API with no mock data. Requirement-by-requirement status lives in [`docs/REQUIREMENTS_TRACEABILITY.md`](docs/REQUIREMENTS_TRACEABILITY.md) and in the app under **Ecosystem → Capabilities**.
+
+**The story is the architecture.** A master lifecycle — Reach → Register → Train → Attend → Assess → Skill → Certify → Connect → Employ → Measure → Improve — sits above every screen and links to the module that serves each stage.
+
+- **Landing** (`#/`): a timed opening (void → first node → staggered network formation → information packets travelling hop by hop → camera flight → masked typography), then a scroll-driven story where one set of ~1,500 nodes morphs through the lifecycle. The camera moves between named states with spring physics.
+- **Signature interaction** — *Ecosystem → Zoom through*: fly from the national network into an institution, a programme and a learner, using live tenant-scoped data.
+- **Workspaces**: six role-specific homes, a contextual rail, directional page transitions, an ambient network that answers each navigation with a signal, and a `Ctrl/⌘ + K` command palette over live records.
+- **Deliverables as experiences**: programme lifecycle (Discover → … → Certify); a learner's connected *learning identity*; a skill graph with certificate evidence; timetable with live trainer / room / batch conflict detection and a lane timeline; hostel capacity → occupied → available; a talent-matching network (job → skills → verified candidates); employment story from training to outcome; a live rotating-QR credential with a cinematic check-in; premium digital credentials; a staged public verification flow; and an integration / architecture view with live API and database status.
+- **Offline learning** (real): lessons download to IndexedDB, progress queues locally, status reads ONLINE / SYNCING / OFFLINE / SYNCED, and a service worker lets the app shell open offline in production builds.
+- **Design system**: tokens in `src/design/tokens.css` ("Oxide"), primitives in `src/ui`, motion vocabulary in `src/motion`, scenes in `src/scene`.
+- **Accessibility & performance**: keyboard navigation, dialog focus management, `prefers-reduced-motion`, adaptive resolution, fewer particles on phones, the 3D stack lazy-loaded.
+
+**Honesty rule.** Where the backend does not support a capability — face verification, assessments, QR for timetable sessions, persisting trainee progress — the UI says so rather than simulating it. Certificate verification is a registry lookup with a live status check; the interface never claims a cryptographic signature check.
+
+---
+
 ## 🧪 Testing & Verification
 
 Run the comprehensive automated test suite:

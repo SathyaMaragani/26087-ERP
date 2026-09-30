@@ -1,278 +1,113 @@
-import React, { useState } from 'react';
-import {
-  X,
-  Search,
-  CheckCircle,
-  AlertTriangle,
-  Award,
-  ShieldCheck,
-  Building2,
-  Calendar,
-  ExternalLink,
-} from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AlertTriangle, Building2, Check, GraduationCap, ScanLine, Search, ShieldCheck, ShieldX, UserRound } from 'lucide-react';
 import { api } from '../api/client';
+import { certNumberFromScan, useQrScan } from '../lib/useQrScan';
+import { EASE } from '../motion/primitives';
+import { CredentialCard } from '../ui/CredentialCard';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/primitives';
 
-interface PublicVerifyModalProps {
-  isOpen?: boolean;
-  onClose: () => void;
-  initialCode?: string;
-}
+interface Props { isOpen?: boolean; onClose: () => void; initialCode?: string }
+const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—');
+const STEPS = ['SCAN', 'LOOKUP', 'AUTHENTICITY', 'HOLDER', 'PROGRAMME', 'ISSUER'] as const;
+const pretty = (s?: string) => (s ?? '').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
-export const PublicVerifyModal: React.FC<PublicVerifyModalProps> = ({
-  isOpen = true,
-  onClose,
-  initialCode = '',
-}) => {
-  const [code, setCode] = useState(initialCode || 'NCCT-2026-F8102B');
+/**
+ * Public credential verification: SCAN QR → LOOKUP → AUTHENTICITY → HOLDER → PROGRAMME → ISSUER.
+ * The backend performs a national-registry lookup and reports status; it does not check a cryptographic
+ * signature, and this screen says exactly that.
+ */
+export function PublicVerifyModal({ isOpen = true, onClose, initialCode = '' }: Props) {
+  const reduce = useReducedMotion();
+  const [code, setCode] = useState(initialCode);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const timers = useRef<number[]>([]);
 
-  if (!isOpen) return null;
-
-  const handleVerify = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!code.trim()) return;
-
-    setLoading(true);
-    setError(null);
+  const verify = async (raw: string) => {
+    const value = certNumberFromScan(raw);
+    if (!value) return;
+    setCode(value); setLoading(true); setError(null); setResult(null); setStep(1);
+    timers.current.forEach(clearTimeout); timers.current = [];
     try {
-      const data = await api.certifications.verifyPublic(code.trim());
-      setResult(data);
-    } catch (err: any) {
-      setError(err.message || 'Verification lookup failed');
-      setResult(null);
-    } finally {
-      setLoading(false);
-    }
+      const res = await api.certifications.verifyPublic(value);
+      setResult(res);
+      const last = res?.isValid ? STEPS.length - 1 : 1;
+      for (let s = 2; s <= last; s++) timers.current.push(window.setTimeout(() => setStep(s), reduce ? 0 : (s - 1) * 360));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification lookup failed');
+    } finally { setLoading(false); }
   };
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const scan = useQrScan((raw) => verify(raw), () => setError('Camera unavailable. Allow camera access, or type the certificate number.'));
+
+  // Deep link: #/verify/<code> verifies immediately.
+  useEffect(() => {
+    if (isOpen && initialCode) { setCode(initialCode); verify(initialCode); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialCode]);
+
+  const onSubmit = (e: FormEvent) => { e.preventDefault(); verify(code); };
+  const c = result?.certificate;
+  const valid = !!(result?.isValid && c);
+  const reached = (i: number) => step >= i;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(4, 8, 16, 0.85)',
-        backdropFilter: 'blur(16px)',
-        padding: '1.5rem',
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="glass-panel"
-        style={{
-          width: '100%',
-          maxWidth: '680px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          padding: '2rem',
-          position: 'relative',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
-          boxShadow: '0 0 30px rgba(245, 158, 11, 0.15)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '1.25rem',
-            right: '1.25rem',
-            color: 'var(--text-muted)',
-            padding: '0.4rem',
-            borderRadius: '50%',
-            background: 'var(--bg-surface-2)',
-          }}
-        >
-          <X size={18} />
-        </button>
+    <Modal open={isOpen} onClose={onClose} title="Verify a certificate" width={720}>
+      <p className="modal-lede"><ShieldCheck size={15} aria-hidden /> Public national registry · no sign-in required</p>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-          <div
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 0 15px rgba(245, 158, 11, 0.4)',
-            }}
-          >
-            <ShieldCheck size={24} color="#ffffff" />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span className="badge badge-gold">Public National Registry</span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>• Zero Auth Required</span>
-            </div>
-            <h3 style={{ fontSize: '1.35rem', color: '#ffffff', marginTop: '0.2rem' }}>
-              NCCT Verifiable Digital Certificate Engine
-            </h3>
-          </div>
-        </div>
+      <ol className="vflow" aria-label="Verification steps">
+        {STEPS.map((s, i) => (
+          <li key={s} className={`${reached(i + 1) ? 'is-on' : ''}${result && !valid && i >= 2 ? ' is-fail' : ''}`}>
+            <span className="vflow-dot" aria-hidden>{reached(i + 1) && (valid || i < 2) ? <Check size={11} /> : null}</span>
+            <span>{s}</span>
+          </li>
+        ))}
+      </ol>
 
-        <form onSubmit={handleVerify} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="Enter Certificate Code (e.g. NCCT-2026-F8102B)"
-            style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}
-          />
-          <button
-            type="submit"
-            className="btn btn-gold"
-            disabled={loading}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            <Search size={16} />
-            <span>{loading ? 'Verifying...' : 'Verify Authenticity'}</span>
-          </button>
-        </form>
+      <form onSubmit={onSubmit} className="verify-form">
+        <label htmlFor="verify-code" className="sr-only">Certificate number</label>
+        <input id="verify-code" className="mono-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Certificate number, e.g. NCCT-2026-XXXXX" autoComplete="off" spellCheck={false} />
+        {scan.supported && <Button type="button" icon={<ScanLine size={15} />} onClick={scan.scanning ? scan.stop : scan.start}>{scan.scanning ? 'Stop' : 'Scan QR'}</Button>}
+        <Button type="submit" variant="primary" loading={loading} icon={<Search size={15} />} disabled={!code.trim()}>Verify</Button>
+      </form>
+      {scan.scanning && <div className="scan-view"><video ref={scan.videoRef} muted playsInline aria-label="Camera preview" /><div className="scan-reticle" aria-hidden /></div>}
 
-        {error && (
-          <div
-            style={{
-              padding: '1rem',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(244, 63, 94, 0.1)',
-              border: '1px solid rgba(244, 63, 94, 0.3)',
-              color: '#fb7185',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-            }}
-          >
-            <AlertTriangle size={18} />
-            <span>{error}</span>
-          </div>
+      <div aria-live="polite">
+        {error && <div className="verify-result verify-bad" role="alert"><AlertTriangle size={18} aria-hidden /><div><strong>Couldn't verify</strong><p>{error}</p></div></div>}
+        {result && !valid && (
+          <motion.div className="verify-result verify-bad" role="alert" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <ShieldX size={20} aria-hidden />
+            <div><strong>{result.status ? 'This credential is no longer valid' : 'No matching credential'}</strong><p>{result.message ?? 'This number does not match an active NCCT certificate. It may be mistyped, revoked, or never issued.'}</p></div>
+          </motion.div>
         )}
-
-        {result && result.isValid && result.certificate && (
-          <div
-            className="animate-fade-in"
-            style={{
-              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(6, 78, 59, 0.25) 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.4)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '1.75rem',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Holographic Watermark Badge */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingBottom: '1rem',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <CheckCircle size={22} color="#10b981" />
-                <span style={{ fontWeight: 700, color: '#34d399', letterSpacing: '0.03em' }}>
-                  GENUINE NCCT CREDENTIAL VERIFIED
-                </span>
+        <AnimatePresence>
+          {valid && (
+            <motion.div className="vresult" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {reached(3) && (
+                <motion.div className="vpanel vpanel-auth" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }}>
+                  <ShieldCheck size={20} aria-hidden /><div><strong>Authentic — found in the NCCT National Registry</strong><p>{result.message}</p><p className="vnote">This is a registry record lookup with a live status check. It is not a cryptographic signature verification.</p></div>
+                </motion.div>
+              )}
+              <div className="vgrid">
+                {reached(4) && <motion.section className="vpanel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }}><h4><UserRound size={13} aria-hidden /> Holder</h4><strong>{c.recipient?.name}</strong><span className="cell-sub num">{c.recipient?.traineeCode}</span>{c.recipient?.cooperativeAffiliation && <span className="cell-sub">{c.recipient.cooperativeAffiliation}</span>}</motion.section>}
+                {reached(5) && <motion.section className="vpanel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }}><h4><GraduationCap size={13} aria-hidden /> Programme</h4><strong>{c.programme?.title ?? '—'}</strong><span className="cell-sub num">{c.programme?.code}</span><span className="cell-sub">{c.programme?.category}</span></motion.section>}
+                {reached(6) && <motion.section className="vpanel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }}><h4><Building2 size={13} aria-hidden /> Issuer</h4><strong>{c.issuingAuthority?.institution}</strong><span className="cell-sub">{pretty(c.issuingAuthority?.type)}{c.issuingAuthority?.state ? ` · ${c.issuingAuthority.state}` : ''}</span><span className="cell-sub">Issued {fmt(c.issuedDate)}</span></motion.section>}
               </div>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.85rem',
-                  color: 'var(--accent-gold-light)',
-                  fontWeight: 600,
-                }}
-              >
-                {result.certificate.certificateNumber}
-              </span>
-            </div>
-
-            <div style={{ marginTop: '1.25rem' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
-                Credential Conferred
-              </div>
-              <h3 style={{ fontSize: '1.3rem', color: '#ffffff', marginTop: '0.2rem' }}>
-                {result.certificate.title}
-              </h3>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '1rem',
-                marginTop: '1.25rem',
-                padding: '1rem',
-                borderRadius: 'var(--radius-md)',
-                background: 'rgba(0, 0, 0, 0.25)',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Certified Recipient</div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#ffffff' }}>
-                  {result.certificate.recipient.name}
-                </div>
-                {result.certificate.recipient.cooperativeAffiliation && (
-                  <div style={{ fontSize: '0.78rem', color: 'var(--primary-400)' }}>
-                    Affiliation: {result.certificate.recipient.cooperativeAffiliation}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Issuing Institution</div>
-                <div style={{ fontSize: '0.92rem', fontWeight: 600, color: '#ffffff' }}>
-                  {result.certificate.issuingAuthority.institution}
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  State: {result.certificate.issuingAuthority.state || 'National HQ'}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Date of Issuance</div>
-                <div style={{ fontSize: '0.88rem', color: '#ffffff' }}>
-                  {new Date(result.certificate.issuedDate).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Grade / Standing</div>
-                <div style={{ fontSize: '0.88rem', color: 'var(--accent-gold-light)', fontWeight: 600 }}>
-                  {result.certificate.grade || 'Passed with Distinction'}
-                </div>
-              </div>
-            </div>
-
-            {/* Verified Skills */}
-            {result.certificate.skillsAcquired && result.certificate.skillsAcquired.length > 0 && (
-              <div style={{ marginTop: '1.25rem' }}>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
-                  Cryptographically Endorsed Competencies
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  {result.certificate.skillsAcquired.map((skill: string, idx: number) => (
-                    <span key={idx} className="badge badge-emerald">
-                      ✓ {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+              {reached(6) && (
+                <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}>
+                  <CredentialCard compact c={{ number: c.certificateNumber, title: c.title, recipient: c.recipient?.name, issued: c.issuedDate, grade: c.grade, issuer: c.issuingAuthority?.institution, programme: c.programme?.title, status: c.status }} />
+                  {c.skillsAcquired?.length > 0 && (<><div className="eyebrow vskills-h">Endorsed competencies</div><ul className="chips chips-inline">{c.skillsAcquired.map((s: string) => <li key={s}>{s}</li>)}</ul></>)}
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </Modal>
   );
-};
+}

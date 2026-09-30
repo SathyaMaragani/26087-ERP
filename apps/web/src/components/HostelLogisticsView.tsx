@@ -1,334 +1,229 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Building2,
-  Package,
-  Truck,
-  Bed,
-  CheckCircle,
-  Clock,
-  Plus,
-  TrendingUp,
-} from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { BedDouble, Building2, PackageCheck, Plus, UserPlus, Wrench } from 'lucide-react';
 import { api } from '../api/client';
-import { HostelOccupancy, LogisticsItem } from '../types';
+import { useAsync } from '../lib/useAsync';
+import { useToast } from '../state/toast';
+import { Modal } from '../ui/Modal';
+import { Field } from '../ui/Field';
+import { RadialGauge } from '../ui/charts';
+import { CapBar } from '../ui/CapBar';
+import { Badge, Button, EmptyState, ErrorState, LoadingBlock, PageHeader, Surface, Tabs } from '../ui/primitives';
+import { statusTone } from '../features/home/shared';
 
-export const HostelLogisticsView: React.FC = () => {
-  const [occupancy, setOccupancy] = useState<HostelOccupancy | null>(null);
-  const [logistics, setLogistics] = useState<LogisticsItem[]>([]);
-  const [loading, setLoading] = useState(true);
+type Tab = 'hostel' | 'logistics';
+const CATEGORIES = ['TRAINING_KITS', 'MEALS', 'EQUIPMENT', 'TRANSPORT', 'VENUE'];
+const FLOW = ['PENDING', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED'] as const;
+const pretty = (s: string) => s.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
-  // Logistics form state
-  const [showLogisticsModal, setShowLogisticsModal] = useState(false);
-  const [category, setCategory] = useState<'KIT' | 'MEAL' | 'EQUIPMENT' | 'TRANSPORT'>('KIT');
-  const [title, setTitle] = useState('');
-  const [quantity, setQuantity] = useState(50);
-  const [vendorName, setVendorName] = useState('National Stationery & Print Corp');
+export function HostelLogisticsView() {
+  const [tab, setTab] = useState<Tab>('hostel');
+  return (
+    <>
+      <PageHeader eyebrow="Campus & logistics" title={<>Beds, meals and <em className="serif-em">supplies</em></>} description="Residential capacity and the supplies each programme depends on." />
+      <Tabs label="Campus section" tabs={[{ id: 'hostel', label: 'Hostel' }, { id: 'logistics', label: 'Logistics' }]} value={tab} onChange={setTab} />
+      <div className="att-body">{tab === 'hostel' ? <Hostel /> : <Logistics />}</div>
+    </>
+  );
+}
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [occ, logs] = await Promise.all([
-        api.hostel.getOccupancy().catch(() => ({
-          totalRooms: 80,
-          totalBeds: 160,
-          occupiedBeds: 124,
-          availableBeds: 36,
-          occupancyRatePercent: 78,
-        })),
-        api.logistics.list(),
-      ]);
-      setOccupancy(occ);
-      setLogistics(logs || []);
-    } catch (err) {
-      console.error('Failed to load hostel or logistics data', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleCreateLogistics = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const progs = await api.programmes.list();
-      const progId = progs[0]?.id || 'prog-id';
-
-      await api.logistics.create({
-        programmeId: progId,
-        category,
-        title,
-        quantity: Number(quantity),
-        vendorName,
-        status: 'PENDING',
-      });
-
-      setShowLogisticsModal(false);
-      setTitle('');
-      fetchData();
-    } catch (err: any) {
-      alert(`Error creating logistics item: ${err.message}`);
-    }
-  };
-
-  const handleUpdateStatus = async (id: string, status: string) => {
-    try {
-      await api.logistics.updateStatus(id, status);
-      fetchData();
-    } catch (err: any) {
-      alert(`Error updating logistics item: ${err.message}`);
-    }
-  };
+/* ------------------------------------------------------------------ Hostel */
+function Hostel() {
+  const occ = useAsync(() => api.hostel.getOccupancy(), []);
+  const hostels = useAsync(() => api.hostel.list(), []);
+  const [hostelOpen, setHostelOpen] = useState(false);
+  const [roomFor, setRoomFor] = useState<any | null>(null);
+  const [allocFor, setAllocFor] = useState<any | null>(null);
+  const reload = () => { occ.reload(); hostels.reload(); };
 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span className="badge badge-emerald">Campus Operations</span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>• Accommodation & Material Logistics</span>
-          </div>
-          <h2 style={{ fontSize: '1.75rem', color: '#ffffff', marginTop: '0.25rem' }}>
-            Hostel Capacity & Training Programme Logistics
-          </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Real-time bed allocation for residential rural participants and fulfillment monitoring for training kits, meals, and IT tablets.
-          </p>
-        </div>
-
-        <button onClick={() => setShowLogisticsModal(true)} className="btn btn-primary btn-sm">
-          <Plus size={14} />
-          <span>Add Logistics Requirement</span>
-        </button>
-      </div>
-
-      {/* Hostel Occupancy KPI Card */}
-      {occupancy && (
-        <div
-          className="glass-panel"
-          style={{
-            padding: '1.75rem',
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 58, 138, 0.25) 100%)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'rgba(59, 130, 246, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#60a5fa',
-                }}
-              >
-                <Bed size={20} />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', color: '#ffffff' }}>RICM Hyderabad Campus Hostel</h3>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Residential Trainee Wing A & B</div>
-              </div>
-            </div>
-            <span className="badge badge-indigo">{occupancy.occupancyRatePercent}% Occupied</span>
-          </div>
-
-          {/* Occupancy Progress Bar */}
-          <div style={{ height: '10px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', overflow: 'hidden' }}>
-            <div
-              style={{
-                width: `${occupancy.occupancyRatePercent}%`,
-                height: '100%',
-                background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)',
-                borderRadius: '6px',
-              }}
-            />
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '1rem',
-              marginTop: '1.25rem',
-              padding: '1rem',
-              background: 'rgba(0, 0, 0, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '0.85rem',
-            }}
-          >
-            <div>
-              <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>Total Rooms</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', marginTop: '0.2rem' }}>
-                {occupancy.totalRooms}
-              </div>
-            </div>
-            <div>
-              <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>Total Beds</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', marginTop: '0.2rem' }}>
-                {occupancy.totalBeds}
-              </div>
-            </div>
-            <div>
-              <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>Occupied Beds</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#60a5fa', marginTop: '0.2rem' }}>
-                {occupancy.occupiedBeds}
-              </div>
-            </div>
-            <div>
-              <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>Available Beds</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#34d399', marginTop: '0.2rem' }}>
-                {occupancy.availableBeds}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Logistics Checklist Section */}
-      <div className="glass-panel" style={{ padding: '1.75rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Package size={20} color="#f59e0b" />
-            <h3 style={{ fontSize: '1.2rem', color: '#ffffff' }}>Training Materials & Logistics Checklist</h3>
-          </div>
-          <span className="badge badge-gold">Delivery Tracker</span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {logistics.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                padding: '1rem 1.25rem',
-                borderRadius: 'var(--radius-md)',
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-subtle)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <span className="badge badge-cyan">{item.category}</span>
-                  <span style={{ fontWeight: 600, color: '#ffffff', fontSize: '0.95rem' }}>{item.title}</span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  Quantity: {item.quantity} • Vendor: {item.vendorName || 'Designated Supplier'}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span className={`badge ${item.status === 'DELIVERED' || item.status === 'COMPLETED' ? 'badge-emerald' : 'badge-gold'}`}>
-                  {item.status === 'DELIVERED' || item.status === 'COMPLETED' ? '✓ ' : '⏳ '}
-                  {item.status}
-                </span>
-
-                {item.status !== 'DELIVERED' && (
-                  <button
-                    onClick={() => handleUpdateStatus(item.id, 'DELIVERED')}
-                    className="btn btn-primary btn-sm"
-                  >
-                    <CheckCircle size={14} />
-                    <span>Mark Delivered</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {logistics.length === 0 && (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-              No logistics items listed. Click "Add Logistics Requirement" to define kits, meals, or simulation tablets.
+    <div className="home-grid">
+      <div className="span-4">
+        <Surface eyebrow="Occupancy" title="Beds in use">
+          {occ.loading && !occ.data ? <LoadingBlock /> : occ.error ? <ErrorState detail={occ.error} onRetry={occ.reload} /> : !occ.data || occ.data.totalBeds === 0 ? <EmptyState icon={<BedDouble size={22} />} title="No beds configured" detail="Add a hostel and its rooms. Each bed then shows as available, occupied or under maintenance, and occupancy updates as you allocate." /> : (
+            <div className="center">
+              <RadialGauge size={160} label="Occupied" value={occ.data.occupancyRatePercent} tone="copper" sub={`${occ.data.occupiedBeds} of ${occ.data.totalBeds} beds`} />
+              <div className="capwrap"><CapBar capacity={occ.data.totalBeds} occupied={occ.data.occupiedBeds} maintenance={0} /></div>
+              <dl className="mini-stats">
+                <div><dt>Rooms</dt><dd className="num">{occ.data.totalRooms}</dd></div>
+                <div><dt>Available</dt><dd className="num">{occ.data.availableBeds}</dd></div>
+                <div><dt>Maintenance</dt><dd className="num">{occ.data.maintenanceRooms}</dd></div>
+              </dl>
             </div>
           )}
-        </div>
+        </Surface>
       </div>
-
-      {/* Add Logistics Item Modal */}
-      {showLogisticsModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(4, 8, 16, 0.8)',
-            backdropFilter: 'blur(12px)',
-            padding: '1.5rem',
-          }}
-        >
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '2rem' }}>
-            <h3 style={{ fontSize: '1.35rem', color: '#ffffff', marginBottom: '1rem' }}>
-              Add Training Logistics Requirement
-            </h3>
-            <form onSubmit={handleCreateLogistics} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Category</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value as any)}>
-                  <option value="KIT">Training Kits & Stationery</option>
-                  <option value="EQUIPMENT">Simulation Tablets / Laptops</option>
-                  <option value="MEAL">Catering & Meals</option>
-                  <option value="TRANSPORT">Field Bus Transport</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Item Title</label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Android Tablets for Smart Agriculture Simulator"
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Quantity</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Vendor / Supplier</label>
-                <input
-                  type="text"
-                  value={vendorName}
-                  onChange={(e) => setVendorName(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowLogisticsModal(false)}
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Add Item
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <div className="span-8">
+        <Surface eyebrow="Hostels" title="Buildings and rooms" action={<Button size="sm" variant="primary" icon={<Plus size={14} />} onClick={() => setHostelOpen(true)}>Add hostel</Button>}>
+          {hostels.loading && !hostels.data ? <LoadingBlock /> : hostels.error ? <ErrorState detail={hostels.error} onRetry={hostels.reload} /> : (hostels.data ?? []).length === 0 ? <EmptyState icon={<Building2 size={22} />} title="No hostels yet" /> : (
+            <div className="hostels">
+              {(hostels.data ?? []).map((h: any) => (
+                <section key={h.id} className="hostel">
+                  <header>
+                    <div><strong className="cell-strong">{h.name}</strong><div className="cell-sub">{h.building} · {pretty(h.gender ?? 'Any')} · {h.totalRooms} rooms planned</div></div>
+                    <div className="row-actions"><Button size="sm" onClick={() => setRoomFor(h)}>Add room</Button><Button size="sm" icon={<UserPlus size={13} />} onClick={() => setAllocFor(h)} disabled={(h.rooms ?? []).length === 0}>Allocate bed</Button></div>
+                  </header>
+                  {(h.rooms ?? []).length > 0 && (() => {
+                    const rooms = h.rooms as any[];
+                    const cap = rooms.reduce((n, r) => n + r.bedCapacity, 0), occupied = rooms.reduce((n, r) => n + r.occupiedBeds, 0);
+                    const maint = rooms.filter((r) => r.isUnderMaintenance).reduce((n, r) => n + Math.max(0, r.bedCapacity - r.occupiedBeds), 0);
+                    return <CapBar capacity={cap} occupied={occupied} maintenance={maint} />;
+                  })()}
+                  {(h.rooms ?? []).length === 0 ? <p className="cell-sub">No rooms added yet.</p> : (
+                    <ul className="rooms">
+                      {h.rooms.map((r: any) => (
+                        <li key={r.id} className={`room${r.isUnderMaintenance ? ' is-maint' : r.occupiedBeds >= r.bedCapacity ? ' is-full' : ''}`} title={`Room ${r.roomNumber}: ${r.occupiedBeds} of ${r.bedCapacity} beds`}>
+                          <span className="room-no num">{r.roomNumber}</span>
+                          <span className="beds" role="img" aria-label={`${r.occupiedBeds} of ${r.bedCapacity} beds occupied`}>{Array.from({ length: r.bedCapacity }, (_, i) => <i key={i} className={i < r.occupiedBeds ? 'on' : ''} />)}</span>
+                          {r.isUnderMaintenance && <Wrench size={12} aria-label="Under maintenance" />}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ))}
+            </div>
+          )}
+        </Surface>
+      </div>
+      <HostelModal open={hostelOpen} onClose={() => setHostelOpen(false)} onDone={() => { setHostelOpen(false); reload(); }} />
+      <RoomModal hostel={roomFor} onClose={() => setRoomFor(null)} onDone={() => { setRoomFor(null); reload(); }} />
+      <AllocateModal hostel={allocFor} onClose={() => setAllocFor(null)} onDone={() => { setAllocFor(null); reload(); }} />
     </div>
   );
-};
+}
+
+function HostelModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const [f, setF] = useState({ name: '', building: '', gender: 'MALE', totalRooms: '' });
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault(); setBusy(true);
+    try { await api.hostel.create({ name: f.name.trim(), building: f.building.trim(), gender: f.gender, ...(f.totalRooms && { totalRooms: Number(f.totalRooms) }) }); toast.success('Hostel added', f.name); setF({ name: '', building: '', gender: 'MALE', totalRooms: '' }); onDone(); }
+    catch (err) { toast.error('Could not add the hostel', err instanceof Error ? err.message : undefined); } finally { setBusy(false); }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Add a hostel" width={480}>
+      <form className="form-grid" onSubmit={submit}>
+        <Field label="Name" wide>{(p) => <input {...p} required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />}</Field>
+        <Field label="Building">{(p) => <input {...p} required value={f.building} onChange={(e) => setF({ ...f, building: e.target.value })} />}</Field>
+        <Field label="Intended for">{(p) => <select {...p} value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}><option value="MALE">Men</option><option value="FEMALE">Women</option><option value="MIXED">Mixed</option></select>}</Field>
+        <Field label="Planned rooms" wide>{(p) => <input {...p} type="number" min={1} value={f.totalRooms} onChange={(e) => setF({ ...f, totalRooms: e.target.value })} />}</Field>
+        <div className="form-actions span-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" variant="primary" loading={busy}>Add hostel</Button></div>
+      </form>
+    </Modal>
+  );
+}
+
+function RoomModal({ hostel, onClose, onDone }: { hostel: any | null; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const [f, setF] = useState({ roomNumber: '', floor: '1', bedCapacity: '2' });
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault(); if (!hostel) return; setBusy(true);
+    try { await api.hostel.addRoom(hostel.id, { roomNumber: f.roomNumber.trim(), floor: Number(f.floor), bedCapacity: Number(f.bedCapacity) }); toast.success(`Room ${f.roomNumber} added`); setF({ ...f, roomNumber: '' }); onDone(); }
+    catch (err) { toast.error('Could not add the room', err instanceof Error ? err.message : undefined); } finally { setBusy(false); }
+  };
+  return (
+    <Modal open={!!hostel} onClose={onClose} title={hostel ? `Add a room · ${hostel.name}` : 'Add a room'} width={440}>
+      <form className="form-grid" onSubmit={submit}>
+        <Field label="Room number" wide>{(p) => <input {...p} required value={f.roomNumber} onChange={(e) => setF({ ...f, roomNumber: e.target.value })} />}</Field>
+        <Field label="Floor">{(p) => <input {...p} type="number" min={0} required value={f.floor} onChange={(e) => setF({ ...f, floor: e.target.value })} />}</Field>
+        <Field label="Beds">{(p) => <input {...p} type="number" min={1} required value={f.bedCapacity} onChange={(e) => setF({ ...f, bedCapacity: e.target.value })} />}</Field>
+        <div className="form-actions span-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" variant="primary" loading={busy}>Add room</Button></div>
+      </form>
+    </Modal>
+  );
+}
+
+function AllocateModal({ hostel, onClose, onDone }: { hostel: any | null; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const trainees = useAsync(() => (hostel ? api.trainees.list() : Promise.resolve([] as any[])), [hostel?.id]);
+  const [f, setF] = useState({ roomId: '', traineeId: '', checkInDate: '', checkOutDate: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ok = !f.checkInDate || !f.checkOutDate || f.checkOutDate >= f.checkInDate;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault(); setBusy(true); setErr('');
+    try { await api.hostel.allocate({ ...f, checkInDate: new Date(f.checkInDate).toISOString(), checkOutDate: new Date(f.checkOutDate).toISOString() }); toast.success('Bed allocated'); setF({ roomId: '', traineeId: '', checkInDate: '', checkOutDate: '' }); onDone(); }
+    catch (er) { setErr(er instanceof Error ? er.message : 'Could not allocate the bed'); } finally { setBusy(false); }
+  };
+  return (
+    <Modal open={!!hostel} onClose={onClose} title={hostel ? `Allocate a bed · ${hostel.name}` : 'Allocate a bed'} width={500}>
+      <form className="form-grid" onSubmit={submit}>
+        <Field label="Room" wide>{(p) => <select {...p} required value={f.roomId} onChange={(e) => setF({ ...f, roomId: e.target.value })}><option value="">Select a room…</option>{(hostel?.rooms ?? []).filter((r: any) => !r.isUnderMaintenance).map((r: any) => <option key={r.id} value={r.id} disabled={r.occupiedBeds >= r.bedCapacity}>Room {r.roomNumber} — {r.bedCapacity - r.occupiedBeds} of {r.bedCapacity} free</option>)}</select>}</Field>
+        <Field label="Trainee" wide>{(p) => <select {...p} required value={f.traineeId} onChange={(e) => setF({ ...f, traineeId: e.target.value })}><option value="">Select a trainee…</option>{(trainees.data ?? []).map((t: any) => <option key={t.id} value={t.id}>{t.user?.firstName} {t.user?.lastName} · {t.traineeCode}</option>)}</select>}</Field>
+        <Field label="Check-in">{(p) => <input {...p} type="date" required value={f.checkInDate} onChange={(e) => setF({ ...f, checkInDate: e.target.value })} />}</Field>
+        <Field label="Check-out" hint={ok ? undefined : 'Check-out must not be before check-in.'}>{(p) => <input {...p} type="date" required min={f.checkInDate} value={f.checkOutDate} onChange={(e) => setF({ ...f, checkOutDate: e.target.value })} aria-invalid={!ok} />}</Field>
+        <div className="form-error span-2" role="alert">{err}</div>
+        <div className="form-actions span-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" variant="primary" loading={busy} disabled={!ok}>Allocate</Button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/* --------------------------------------------------------------- Logistics */
+function Logistics() {
+  const toast = useToast();
+  const items = useAsync(() => api.logistics.list(), []);
+  const [open, setOpen] = useState(false);
+
+  const advance = async (it: any) => {
+    const next = FLOW[FLOW.indexOf(it.status) + 1];
+    if (!next) return;
+    try { await api.logistics.updateStatus(it.id, next); toast.success(`${it.title}`, `Now ${pretty(next).toLowerCase()}`); items.reload(); }
+    catch (e) { toast.error('Could not update the status', e instanceof Error ? e.message : undefined); }
+  };
+
+  const byProgramme = (items.data ?? []).reduce((m: Record<string, any[]>, it: any) => { (m[it.programme?.title ?? 'Unassigned'] ??= []).push(it); return m; }, {});
+
+  return (
+    <>
+      <div className="toolbar"><div className="grow" /><Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>Add requirement</Button></div>
+      {items.loading && !items.data ? <LoadingBlock label="Loading logistics" /> : items.error ? <ErrorState detail={items.error} onRetry={items.reload} /> : (items.data ?? []).length === 0 ? (
+        <Surface><EmptyState icon={<PackageCheck size={22} />} title="No logistics requirements yet" detail="Track training kits, meals, equipment and transport per programme." /></Surface>
+      ) : Object.entries(byProgramme).map(([title, list]) => (
+        <Surface key={title} eyebrow="Programme" title={title} className="log-group">
+          <ul className="log-list">
+            {list.map((it: any) => {
+              const step = FLOW.indexOf(it.status);
+              return (
+                <li key={it.id}>
+                  <div className="log-main"><strong className="cell-strong">{it.title}</strong><div className="cell-sub">{pretty(it.category)} · qty <span className="num">{it.quantity}</span>{it.vendorName ? ` · ${it.vendorName}` : ''}{typeof it.cost === 'number' ? ` · ₹${it.cost.toLocaleString('en-IN')}` : ''}</div>{it.remarks && <div className="cell-sub">{it.remarks}</div>}</div>
+                  <ol className="steps" aria-label={`Status: ${pretty(it.status)}`}>{FLOW.map((s, i) => <li key={s} className={i <= step ? 'on' : ''} title={pretty(s)} />)}</ol>
+                  <Badge tone={statusTone(it.status === 'IN_PROGRESS' ? 'ONGOING' : it.status === 'PENDING' ? 'SUBMITTED' : 'COMPLETED')} dot>{pretty(it.status)}</Badge>
+                  <Button size="sm" disabled={step >= FLOW.length - 1} onClick={() => advance(it)}>{step >= FLOW.length - 1 ? 'Done' : `Mark ${pretty(FLOW[step + 1]).toLowerCase()}`}</Button>
+                </li>
+              );
+            })}
+          </ul>
+        </Surface>
+      ))}
+      <LogisticsModal open={open} onClose={() => setOpen(false)} onDone={() => { setOpen(false); items.reload(); }} />
+    </>
+  );
+}
+
+function LogisticsModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const programmes = useAsync(() => (open ? api.programmes.list() : Promise.resolve([] as any[])), [open]);
+  const [f, setF] = useState({ programmeId: '', category: 'TRAINING_KITS', title: '', quantity: '1', vendorName: '', cost: '' });
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault(); setBusy(true);
+    try { await api.logistics.create({ programmeId: f.programmeId, category: f.category, title: f.title.trim(), quantity: Number(f.quantity), ...(f.vendorName.trim() && { vendorName: f.vendorName.trim() }), ...(f.cost && { cost: Number(f.cost) }) }); toast.success('Requirement added', f.title); setF({ ...f, title: '', vendorName: '', cost: '' }); onDone(); }
+    catch (err) { toast.error('Could not add the requirement', err instanceof Error ? err.message : undefined); } finally { setBusy(false); }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Add a logistics requirement" width={520}>
+      <form className="form-grid" onSubmit={submit}>
+        <Field label="Programme" wide>{(p) => <select {...p} required value={f.programmeId} onChange={(e) => setF({ ...f, programmeId: e.target.value })}><option value="">Select a programme…</option>{(programmes.data ?? []).map((g: any) => <option key={g.id} value={g.id}>{g.title}</option>)}</select>}</Field>
+        <Field label="Category">{(p) => <select {...p} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{CATEGORIES.map((c) => <option key={c} value={c}>{pretty(c)}</option>)}</select>}</Field>
+        <Field label="Quantity">{(p) => <input {...p} type="number" min={1} required value={f.quantity} onChange={(e) => setF({ ...f, quantity: e.target.value })} />}</Field>
+        <Field label="Item" wide>{(p) => <input {...p} required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />}</Field>
+        <Field label="Vendor (optional)">{(p) => <input {...p} value={f.vendorName} onChange={(e) => setF({ ...f, vendorName: e.target.value })} />}</Field>
+        <Field label="Cost in ₹ (optional)">{(p) => <input {...p} type="number" min={0} value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} />}</Field>
+        <div className="form-actions span-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" variant="primary" loading={busy} disabled={!f.programmeId}>Add</Button></div>
+      </form>
+    </Modal>
+  );
+}

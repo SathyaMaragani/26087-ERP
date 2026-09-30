@@ -1,0 +1,106 @@
+/* ==========================================================================
+   Monsoon Porcelain — the site-wide NCCT identity, everywhere except the
+   landing hero (.landing / .hero-page keep their own dark DyeWhorl scene).
+   Scoped to :is(.login, .shell) — the login screen's root and the app
+   shell's root (which every in-app module renders inside, via data-module)
+   — so login and every module share one palette; every rule below just
+   re-points the same variables every existing component (Surface, Metric,
+   gauges, charts, Timeline, Rail, TopBar) already reads, so nothing here
+   duplicates their layout logic.
+   ========================================================================== */
+:is(.login, .shell) {
+  /* `color` inherits as an already-resolved value, not a live var() — body sets it once, above this
+     scope, so anything here that never re-declares `color` (icon buttons, the user menu, …) would
+     otherwise keep rendering in the dark theme's ink. Re-declaring it here re-anchors the inheritance. */
+  color: var(--text-primary);
+  --ncct-porcelain: #F5F1E8; --ncct-warm-white: #FBF9F4; --ncct-mist: #E9E7DE;
+  --ncct-ink: #18201D; --ncct-stone: #69716B; --ncct-jade: #3E7C6A; --ncct-pale-jade: #91B3A5;
+  --ncct-copper: #A9613B; --ncct-marigold: #D4A04D; --ncct-rain: #7897A0; --ncct-lichen: #82966C; --ncct-vermilion: #C95748;
+
+  --bg-primary: var(--ncct-porcelain); --bg-secondary: var(--ncct-warm-white);
+  --surface: var(--ncct-warm-white); --surface-elevated: #fff; --surface-sunken: var(--ncct-mist);
+  --text-primary: var(--ncct-ink); --text-secondary: var(--ncct-stone); --text-tertiary: #8b9089; --text-inverse: var(--ncct-porcelain);
+
+  --accent-primary: var(--ncct-jade); --accent-primary-strong: #2f6355; --accent-primary-soft: rgba(62, 124, 106, 0.12);
+  --accent-secondary: var(--ncct-copper); --accent-secondary-soft: rgba(169, 97, 59, 0.12);
+  --accent-tertiary: var(--ncct-marigold); --accent-tertiary-soft: rgba(212, 160, 77, 0.15);
+  --accent-warning: var(--ncct-marigold); --accent-warning-soft: rgba(212, 160, 77, 0.15);
+  --accent-success: var(--ncct-jade); --accent-success-soft: rgba(62, 124, 106, 0.12);
+  --accent-danger: var(--ncct-vermilion); --accent-danger-soft: rgba(201, 87, 72, 0.12);
+  --mod: var(--ncct-jade); --mod-soft: rgba(62, 124, 106, 0.12);
+
+  --border-subtle: rgba(24, 32, 29, 0.08); --border-default: rgba(24, 32, 29, 0.14); --border-strong: rgba(24, 32, 29, 0.24);
+  --shadow-sm: 0 1px 2px rgba(24, 32, 29, 0.04); --shadow-md: 0 16px 32px -18px rgba(24, 32, 29, 0.22); --shadow-lg: 0 30px 60px -24px rgba(24, 32, 29, 0.28);
+  --focus-ring: 0 0 0 2px var(--ncct-porcelain), 0 0 0 4px var(--ncct-jade);
+
+  /* A good deal of older component CSS reads these raw Atlas tokens directly rather than the semantic
+     names above (a legacy pattern from the dark system); overriding them too is what makes eyebrows,
+     rules and hairlines come out porcelain instead of ink-blue-grey. */
+  --ink-0: var(--ncct-porcelain); --ink-1: var(--ncct-warm-white); --ink-2: #fff; --ink-3: var(--ncct-mist);
+  --paper: var(--ncct-ink); --paper-2: var(--ncct-stone); --paper-3: #8b9089;
+  --rule: var(--border-subtle); --rule-strong: var(--border-default);
+  --net: var(--ncct-jade); --net-bright: var(--ncct-jade); --net-soft: var(--accent-primary-soft);
+  --live: var(--ncct-jade); --live-soft: var(--accent-primary-soft);
+  --ok: var(--ncct-jade); --ok-soft: var(--accent-primary-soft);
+  --alert: var(--ncct-vermilion); --alert-soft: var(--accent-danger-soft);
+  --caution: var(--ncct-marigold); --caution-soft: var(--accent-warning-soft);
+}
+:is(.login, .shell)::before { background: radial-gradient(1000px 600px at 90% -10%, rgba(62, 124, 106, 0.06), transparent 60%), radial-gradient(700px 500px at 0% 100%, rgba(212, 160, 77, 0.07), transparent 60%); }
+/* .login has no background of its own in ui.css (it just relies on whatever sits behind it — the
+   dark ink html/body, or the 3D scene, in the old dark theme); give it the porcelain ground itself
+   now that scene is hidden on this route, so the page reads as one surface, not a card floating on nothing. */
+.login { background: var(--bg-primary); min-height: 100svh; }
+:is(.login, .shell) .topbar { background: rgba(251, 249, 244, 0.86); border-bottom-color: var(--border-subtle); }
+:is(.login, .shell) .rail { background: var(--ncct-warm-white); border-right-color: var(--border-subtle); }
+:is(.login, .shell) .rail-active::before { box-shadow: none; }
+:is(.login, .shell) .avatar { background: var(--ncct-jade); color: var(--ncct-porcelain); }
+/* atlas.css flattens .surface to a transparent, top-ruled strip everywhere else in the app (by design,
+   for the dark ink system); the porcelain identity wants real cards, so that reset is undone here. */
+:is(.login, .shell) .surface, :is(.login, .shell) .glass-panel, :is(.login, .shell) .card, .login-card {
+  background: var(--surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);
+}
+:is(.login, .shell) .surface:hover, :is(.login, .shell) .glass-panel:hover { border-color: var(--border-default); }
+:is(.login, .shell) .kpi-row > .metric { box-shadow: var(--shadow-sm); transition: box-shadow 0.25s, transform 0.25s; }
+:is(.login, .shell) .kpi-row > .metric:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+:is(.login, .shell) .metric-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--accent-primary-soft); color: var(--accent-primary-strong); }
+:is(.login, .shell) .metric-copper .metric-icon { background: var(--accent-secondary-soft); color: var(--accent-secondary); }
+:is(.login, .shell) .metric-amber .metric-icon { background: var(--accent-warning-soft); color: var(--accent-warning); }
+:is(.login, .shell) .metric-indigo .metric-icon { background: rgba(120, 151, 160, 0.16); color: var(--ncct-rain); }
+:is(.login, .shell) .metric-teal .metric-value { color: var(--ncct-jade); }
+:is(.login, .shell) .metric-indigo .metric-value { color: var(--ncct-rain); }
+:is(.login, .shell) .hero-map { min-height: 560px; background: var(--ncct-mist); border: 1px solid var(--border-subtle); }
+:is(.login, .shell) .map-overlay { color: var(--ncct-ink); }
+:is(.login, .shell) .map-overlay .eyebrow { color: var(--ncct-stone); }
+:is(.login, .shell) .timeline-dot { box-shadow: 0 0 0 3px var(--ncct-warm-white); }
+
+/* — welcome — */
+.dash-welcome { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 22px; flex-wrap: wrap; }
+.dash-welcome h1 { font-family: 'Instrument Serif', var(--font-display); font-weight: 400; font-size: clamp(1.7rem, 2.6vw, 2.3rem); letter-spacing: -0.01em; line-height: 1.15; }
+.dash-welcome .eyebrow { color: var(--text-tertiary); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px; }
+.dash-welcome p { color: var(--text-secondary); font-size: 13.5px; margin-top: 4px; }
+.dash-welcome time { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
+
+/* — today / schedule module — */
+.dash-schedule { display: grid; gap: 4px; }
+.dash-schedule li { display: grid; grid-template-columns: 62px 3px 1fr; align-items: start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+.dash-schedule li:last-child { border-bottom: 0; }
+.dash-schedule time { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-tertiary); padding-top: 2px; }
+.dash-schedule i { align-self: stretch; border-radius: 2px; background: var(--accent-primary); }
+.dash-schedule strong { font-size: 13.5px; font-weight: 500; display: block; }
+.dash-schedule small { color: var(--text-tertiary); font-size: 12px; }
+
+/* — journey panels — */
+.dash-journey { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); overflow: hidden; }
+.dash-journey a { background: var(--surface); padding: 26px 22px; display: grid; gap: 10px; align-content: start; transition: background 0.2s; --tone: var(--ncct-jade); }
+.dash-journey a:hover { background: var(--ncct-warm-white); }
+.dash-journey a:nth-child(2) { --tone: var(--ncct-rain); } .dash-journey a:nth-child(3) { --tone: var(--ncct-copper); } .dash-journey a:nth-child(4) { --tone: var(--ncct-marigold); }
+.dash-journey b { width: 22px; height: 2px; background: var(--tone); }
+.dash-journey h4 { font-family: 'Instrument Serif', var(--font-display); font-weight: 400; font-style: italic; font-size: 1.5rem; color: var(--tone); }
+.dash-journey p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.dash-journey ul { list-style: none; display: grid; gap: 4px; margin-top: 4px; }
+.dash-journey li { font-size: 12px; color: var(--text-tertiary); }
+.dash-journey span { font-size: 12px; color: var(--tone); display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; }
+
+@media (max-width: 900px) {
+  .dash-journey { grid-template-columns: 1fr; }
+}

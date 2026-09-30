@@ -1,0 +1,143 @@
+/* ==========================================================================
+   NCCT design system — "Atlas"
+   Ink-blue ground, porcelain paper, ultramarine system, cyan live-signal,
+   sage stability, vermillion attention. Colour carries meaning:
+     ink = system environment · paper = human content · net = active system
+     live = connected / synchronised · ok = healthy / complete · alert = conflict
+   ========================================================================== */
+:root {
+  /* Environment */
+  --ink-0: #070b14;
+  --ink-1: #0c1220;
+  --ink-2: #121a2b;
+  --ink-3: #1a2438;
+  --rule: rgba(240, 237, 230, 0.1);
+  --rule-strong: rgba(240, 237, 230, 0.22);
+
+  /* Paper (human content) */
+  --paper: #f0ede6;
+  --paper-2: #b7bcc6;
+  --paper-3: #7d8594;
+
+  /* Semantic colour */
+  --net: #4e63ff;          /* network / information / active system / primary action */
+  --net-bright: #8a98ff;
+  --net-soft: rgba(78, 99, 255, 0.16);
+  --live: #6fd3db;         /* live / connected / synchronised */
+  --live-soft: rgba(111, 211, 219, 0.13);
+  --ok: #84b9a6;           /* stable / healthy / completed */
+  --ok-soft: rgba(132, 185, 166, 0.15);
+  --alert: #ee5b49;        /* warning / conflict / attention */
+  --alert-soft: rgba(238, 91, 73, 0.14);
+  --caution: #e2b04a;      /* pending / needs a decision */
+  --caution-soft: rgba(226, 176, 74, 0.14);
+
+  /* Per-module signature (set on the shell; defaults to the system colour) */
+  --mod: var(--net);
+  --mod-soft: var(--net-soft);
+
+  /* Names used across the codebase */
+  --bg-primary: var(--ink-0);
+  --bg-secondary: var(--ink-1);
+  --surface: var(--ink-1);
+  --surface-elevated: var(--ink-2);
+  --surface-sunken: #060a12;
+  --surface-overlay: rgba(9, 14, 25, 0.9);
+
+  --text-primary: var(--paper);
+  --text-secondary: var(--paper-2);
+  --text-tertiary: var(--paper-3);
+  --text-inverse: #060912;
+
+  --accent-primary: var(--net);
+  --accent-primary-strong: var(--net-bright);
+  --accent-primary-soft: var(--net-soft);
+  --accent-secondary: var(--live);
+  --accent-secondary-soft: var(--live-soft);
+  --accent-tertiary: var(--net-bright);
+  --accent-tertiary-soft: var(--net-soft);
+  --accent-warning: var(--caution);
+  --accent-warning-soft: var(--caution-soft);
+  --accent-success: var(--ok);
+  --accent-success-soft: var(--ok-soft);
+  --accent-danger: var(--alert);
+  --accent-danger-soft: var(--alert-soft);
+
+  --border-subtle: rgba(240, 237, 230, 0.07);
+  --border-default: var(--rule);
+  --border-strong: var(--rule-strong);
+  --glow-primary: none;
+  --glow-secondary: none;
+  --focus-ring: 0 0 0 2px var(--ink-0), 0 0 0 4px var(--live);
+
+  /* Type: story / system / data */
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-data: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --text-display: clamp(2.9rem, 8.4vw, 8.6rem);
+  --text-h1: clamp(1.9rem, 3.4vw, 2.9rem);
+  --text-h2: clamp(1.3rem, 2vw, 1.7rem);
+  --text-h3: 1.05rem;
+  --text-body: 0.9375rem;
+  --text-small: 0.8125rem;
+  --text-caption: 0.6875rem;
+
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.5rem; --space-6: 2rem; --space-7: 3rem; --space-8: 5rem;
+
+  /* Geometry: crisp, measured — not pillowy */
+  --radius-xs: 2px; --radius-sm: 3px; --radius-md: 4px; --radius-lg: 6px;
+  --radius-xl: 8px; --radius-full: 9999px;
+
+  --shadow-sm: none;
+  --shadow-md: 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 30px 70px -20px rgba(0, 0, 0, 0.75);
+
+  --blur-sm: blur(6px); --blur-md: blur(10px); --blur-lg: blur(14px);
+
+  /* Motion: quick where the person acts, long only where a scene changes */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.7, 0, 0.2, 1);
+  --dur-fast: 100ms; --dur-base: 170ms; --dur-slow: 320ms;
+  --transition: all var(--dur-base) var(--ease-out);
+
+  --z-scene: 0; --z-content: 10; --z-rail: 40; --z-topbar: 45;
+  --z-overlay: 60; --z-modal: 80; --z-toast: 100; --z-boot: 120;
+
+  --rail-collapsed: 60px; --rail-expanded: 232px; --topbar-h: 46px;
+  --content-max: 1560px;
+
+  /* Legacy aliases so older component CSS resolves to the new system */
+  --bg-app: var(--bg-primary);
+  --bg-surface-1: var(--surface);
+  --bg-surface-2: var(--surface-elevated);
+  --bg-card: var(--surface);
+  --bg-card-hover: var(--surface-elevated);
+  --bg-glass: rgba(240, 237, 230, 0.03);
+  --bg-glass-input: var(--surface-sunken);
+  --bg-input: var(--surface-sunken);
+  --border-glass: var(--border-subtle);
+  --border-focus: var(--live);
+  --border-gold: rgba(226, 176, 74, 0.4);
+  --border: var(--border-default);
+  --text-main: var(--text-primary);
+  --text-muted: var(--text-secondary);
+  --text-dim: var(--text-tertiary);
+  --primary: var(--live);
+  --primary-light: #9be3e9;
+  --primary-300: #9be3e9;
+  --primary-400: #7fd9e0;
+  --primary-500: var(--live);
+  --primary-600: #4fb4be;
+  --primary-700: #35878f;
+  --accent-gold: var(--caution);
+  --accent-gold-light: #efc46a;
+  --accent-cyan: var(--live);
+  --accent-indigo: var(--net-bright);
+  --accent-rose: var(--alert);
+  --success: var(--ok);
+  --font-mono: var(--font-data);
+  --shadow-glow: none;
+  --shadow-glow-gold: none;
+}
