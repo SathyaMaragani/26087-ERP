@@ -245,7 +245,7 @@ export class StudentsService {
     const attendanceRate =
       totalAttendance > 0
         ? Math.round((presentAttendance / totalAttendance) * 100)
-        : 100;
+        : null;
 
     return {
       ...student,

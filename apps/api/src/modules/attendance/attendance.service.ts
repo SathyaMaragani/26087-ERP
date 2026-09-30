@@ -230,14 +230,14 @@ export class AttendanceService {
     }
 
     const overallPercentage =
-      totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : 100;
+      totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : null;
 
     return {
       overall: {
         totalClasses,
         totalPresent,
         percentage: overallPercentage,
-        isAtRisk: overallPercentage < 75,
+        isAtRisk: overallPercentage != null && overallPercentage < 75,
       },
       courses: Object.values(courseStats),
       recentRecords: records.slice(0, 20),

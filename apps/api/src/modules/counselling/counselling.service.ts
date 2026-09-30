@@ -145,10 +145,12 @@ export class CounsellingService {
 
     if (text.includes('skill') || text.includes('learn') || text.includes('next') || text.includes('course')) {
       const rec = trainee ? await this.getRecommendations(trainee.id, req) : null;
-      const recommended = rec?.recommendedSkillsToLearn || ['PACS Digital Accounting', 'Member Governance'];
+      const recommended = rec?.recommendedSkillsToLearn ?? [];
 
       return {
-        reply: `Great question, ${traineeName}! To maximize your employability in regional cooperatives, the top recommended skills to learn next are:\n\n• ${recommended.slice(0, 3).join('\n• ')}\n\nNCCT and affiliated ICMs offer certified blended training programmes covering these exact competencies.`,
+        reply: recommended.length > 0
+          ? `Great question, ${traineeName}! Based on skills gaps in open roles you're closest to matching, the top skills to learn next are:\n\n• ${recommended.slice(0, 3).join('\n• ')}\n\nNCCT and affiliated ICMs offer certified blended training programmes covering these exact competencies.`
+          : `${traineeName}, there isn't enough data yet to recommend specific skill gaps — this compares your verified skills against open job postings, and none show a clear gap right now. Check back as new postings and skills are added.`,
         actionableLinks: ['/programmes'],
         intent: 'SKILL_RECOMMENDATION',
       };
@@ -156,7 +158,7 @@ export class CounsellingService {
 
     if (text.includes('certificate') || text.includes('cert')) {
       return {
-        reply: `You currently have ${certCount} verified NCCT certificate(s). All your certificates include a verifiable tamper-proof QR code that employers can instantly check on the National Verification Portal.`,
+        reply: `You currently have ${certCount} verified NCCT certificate(s). Each one can be checked instantly on the National Verification Portal — a registry lookup and status check, not a cryptographic signature verification.`,
         actionableLinks: ['/certifications'],
         intent: 'CERTIFICATE_INQUIRY',
       };

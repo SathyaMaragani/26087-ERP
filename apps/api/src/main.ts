@@ -59,7 +59,7 @@ async function bootstrap() {
     .addTag('Hostel Management', 'Hostel accommodation, bed allocation, check-in/out, and occupancy tracking')
     .addTag('Logistics Management (Meals, Kits, Transport)', 'Training kits, meals, equipment, and transport fulfillment')
     .addTag('Rural & Cooperative Skills Taxonomy', 'Skill categories, competency levels, and verified skill badges')
-    .addTag('Digital Certifications & QR Verification', 'Cryptographic verifiable certificates and public QR verification')
+    .addTag('Digital Certifications & QR Verification', 'Certificate issuance and public verification via a national-registry lookup and status check (not a cryptographic signature verification)')
     .addTag('Employment Exchange & Skill Matching', 'Job postings, algorithmic skill matching (%), and placement tracking')
     .addTag('Career Counseling & AI Recommendations', 'Controlled career assistant and personalized skill gap advice')
     .addTag('Attendance Management', 'Session scheduling, QR/manual marking, and at-risk monitoring')
