@@ -1,4 +1,8 @@
-const API_BASE = '/api/v1';
+// Local dev: Vite's dev server proxies the relative path to localhost:4000 (see vite.config.ts),
+// so this stays empty. Production: frontend and API are deployed to different hosts, so this must
+// be set to the deployed API's own origin (e.g. https://ncct-api.onrender.com) at build time.
+const API_ORIGIN = import.meta.env.VITE_API_URL ?? '';
+const API_BASE = `${API_ORIGIN}/api/v1`;
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public details?: any) {
@@ -169,7 +173,7 @@ export const api = {
   // Platform
   health: async () => {
     const started = performance.now();
-    const res = await fetch('/health');
+    const res = await fetch(`${API_ORIGIN}/health`);
     if (!res.ok) throw new ApiError(res.status, 'Health check failed');
     const json = await res.json();
     const data = json.data ?? json;
