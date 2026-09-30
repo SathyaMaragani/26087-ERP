@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { INDIA_OUTLINE, mulberry32, projectLonLat, sampleIndia, STATE_LONLAT, terrain } from '../scene/india';
+import { mulberry32, projectLonLat, STATE_LONLAT, terrain } from '../scene/india';
 import { regionPosition } from './regionGeo';
 
 export interface InstitutionNode {
@@ -40,7 +40,6 @@ export interface ProgrammeNode {
   certificates: number;
 }
 
-const PORCELAIN = { terrainLow: [0.93, 0.91, 0.87] as [number, number, number], terrainHigh: [0.62, 0.72, 0.66] as [number, number, number] };
 const JADE = new THREE.Color('#3E7C6A');
 const COPPER = new THREE.Color('#A9613B');
 const MARIGOLD = new THREE.Color('#D4A04D');
@@ -110,45 +109,11 @@ function CameraRig({ focus, focusDistance }: { focus: THREE.Vector3; focusDistan
   return null;
 }
 
-/** The physical form of the country — a solid matte relief slab, not a scatter of dust. */
-function IndiaSilhouette() {
-  const geom = useMemo(() => {
-    const shape = new THREE.Shape(INDIA_OUTLINE.map(([lon, lat]) => { const [x, y] = projectLonLat(lon, lat); return new THREE.Vector2(x, y); }));
-    const g = new THREE.ExtrudeGeometry(shape, { depth: 0.1, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.03, bevelSegments: 3, curveSegments: 12 });
-    g.rotateX(-Math.PI / 2);
-    g.translate(0, -0.14, 0);
-    return g;
-  }, []);
-  return (
-    <mesh geometry={geom} receiveShadow>
-      <meshStandardMaterial color="#F2EDE0" roughness={0.82} metalness={0.01} />
-    </mesh>
-  );
-}
-
-/** Fine surface grain over the relief slab — texture, not the landmass's legibility. */
-function Terrain() {
-  const geom = useMemo(() => {
-    const pts = sampleIndia(2200, mulberry32(7));
-    const positions = new Float32Array(pts.length * 3);
-    const colors = new Float32Array(pts.length * 3);
-    pts.forEach(([x, y, z], i) => {
-      positions.set([x, z * 0.4, -y], i * 3);
-      const h = Math.min(1, Math.max(0, (z + 0.4) / 1.4));
-      const [lr, lg, lb] = PORCELAIN.terrainLow, [hr, hg, hb] = PORCELAIN.terrainHigh;
-      colors.set([lr + (hr - lr) * h, lg + (hg - lg) * h, lb + (hb - lb) * h], i * 3);
-    });
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    return g;
-  }, []);
-  return (
-    <points geometry={geom} frustumCulled={false} position={[0, 0.005, 0]}>
-      <pointsMaterial size={0.075} vertexColors sizeAttenuation transparent opacity={0.55} />
-    </points>
-  );
-}
+/* IndiaSilhouette and Terrain have been replaced by the static India heritage map image
+   (public/assets/ncct-india-network.png) rendered as a CSS layer behind the transparent WebGL
+   canvas. This preserves all 3D institution/programme/trainee interaction while delivering a
+   more premium cartographic base. The image uses mix-blend-mode:screen to shed its black
+   background against the dark command-center ground. */
 
 function InstitutionMarker({ node, active, selected, dim, pulse, onSelect }: { node: InstitutionNode; active: boolean; selected: boolean; dim: boolean; pulse: number; onSelect: (n: InstitutionNode, pos: THREE.Vector3) => void }) {
   const pos = useMemo(() => nodePosition(node.state, node.id.length + node.id.charCodeAt(0)), [node]);
@@ -521,12 +486,11 @@ function Scene({
   return (
     <>
       <CameraRig focus={focus} focusDistance={focusDistance} />
-      <ambientLight intensity={1.15} color="#F5F1E8" />
-      <directionalLight position={[4, 7, 3]} intensity={0.7} color="#FBF9F4" castShadow shadow-mapSize={[1024, 1024]} />
-      <directionalLight position={[-5, 4, -3]} intensity={0.25} color="#E9E7DE" />
+      <ambientLight intensity={0.8} color="#91B3A5" />
+      <directionalLight position={[4, 7, 3]} intensity={1.1} color="#F5F1E8" castShadow shadow-mapSize={[1024, 1024]} />
+      <directionalLight position={[-5, 4, -3]} intensity={0.35} color="#3E7C6A" />
       <group ref={group}>
-        <IndiaSilhouette />
-        <Terrain />
+        {/* India base visual is now the static heritage map image behind the canvas — see cc-india-visual in CommandCenter.tsx */}
         {level === 'national' && regions.map((r) => (
           <RegionMarker key={r.state} state={r.state} count={r.count} focused={false} onSelect={onSelectRegion} onHover={onHoverRegion} />
         ))}
@@ -571,8 +535,7 @@ function Scene({
 
 export default function CommandCenterWorld(props: WorldProps) {
   return (
-    <Canvas dpr={[1, 1.75]} camera={{ fov: 38, position: [5.2, 16.8, 6.6] }} gl={{ antialias: true }} shadows aria-label="Interactive 3D map of the NCCT national network">
-      <color attach="background" args={['#F5F1E8']} />
+    <Canvas dpr={[1, 1.75]} camera={{ fov: 38, position: [5.2, 16.8, 6.6] }} gl={{ antialias: true, alpha: true }} shadows aria-label="Interactive 3D map of the NCCT national network" style={{ background: 'transparent' }}>
       <Scene {...props} />
     </Canvas>
   );

@@ -435,8 +435,16 @@ export function CommandCenter({ persona, onNavigate, embedded = false }: HomePro
   return (
     <div className={`cc-root ${embedded ? 'cc-root--embedded' : 'cc-root--full'}`}>
       <div className="cc-stage">
+        {/* Static India heritage map — sits behind the transparent WebGL canvas and the DOM fallback.
+            The image's own black background becomes transparent via mix-blend-mode:screen against
+            the dark cc-root, so only the ivory terrain and teal nodes are visible.
+            Subtle CSS scale transitions mirror the camera drill-down without touching WebGL geometry. */}
+        <div className={`cc-india-visual${level === 'region' || level === 'institution' ? ' cc-india-visual--region' : level !== 'national' ? ' cc-india-visual--deep' : ''}`} aria-hidden="true">
+          <img src="/assets/ncct-india-network.png" alt="" width="1050" height="1050" loading="eager" decoding="async" />
+        </div>
+
         {tier.webgl ? (
-          <Suspense fallback={<div className="cc-loading">Loading the national network…</div>}>
+          <Suspense fallback={<div className="cc-loading">Initialising the national network…</div>}>
             <CommandCenterWorld
               nodes={nodes}
               layers={layers}
@@ -464,13 +472,19 @@ export function CommandCenter({ persona, onNavigate, embedded = false }: HomePro
             />
           </Suspense>
         ) : (
-          <div className="cc-fallback" role="img" aria-label="A schematic map of NCCT's national institution network">
-            <svg viewBox="0 0 400 400" fill="none">
-              <ellipse cx="200" cy="200" rx="140" ry="150" stroke="#91B3A5" strokeWidth="1" opacity="0.5" />
-              {nodes.slice(0, 14).map((n, i) => {
+          /* WebGL unavailable: show the same India visual with DOM-positioned institution nodes.
+             Interaction is limited but the national network remains legible. */
+          <div className="cc-fallback" role="img" aria-label="NCCT national institution network — static map">
+            <svg viewBox="0 0 100 100" fill="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+              {nodes.slice(0, 18).map((n, i) => {
                 const a = (i / Math.max(1, nodes.length)) * Math.PI * 2;
-                const x = 200 + Math.cos(a) * 100; const y = 200 + Math.sin(a) * 110;
-                return <circle key={n.id} cx={x} cy={y} r="5" fill={n.type === 'RICM' ? '#3E7C6A' : '#A9613B'} />;
+                const cx = 50 + Math.cos(a) * 26; const cy = 50 + Math.sin(a) * 30;
+                return (
+                  <g key={n.id} onClick={() => onSelect(n, new THREE.Vector3(0, 0, 0))} style={{ cursor: 'pointer' }}>
+                    <circle cx={cx} cy={cy} r="1.8" fill={n.type === 'RICM' ? '#3E7C6A' : '#A9613B'} opacity="0.9" />
+                    <circle cx={cx} cy={cy} r="3.5" fill={n.type === 'RICM' ? '#3E7C6A' : '#A9613B'} opacity="0.18" />
+                  </g>
+                );
               })}
             </svg>
           </div>
