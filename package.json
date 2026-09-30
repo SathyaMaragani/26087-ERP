@@ -12,6 +12,7 @@
     "prisma:generate": "pnpm --filter @erplms/api prisma:generate",
     "prisma:migrate": "pnpm --filter @erplms/api prisma:migrate",
     "prisma:seed": "pnpm --filter @erplms/api prisma:seed",
+    "prisma:seed:demo": "pnpm --filter @erplms/api prisma:seed:demo",
     "prisma:studio": "pnpm --filter @erplms/api prisma:studio"
   },
   "devDependencies": {
