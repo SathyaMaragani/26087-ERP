@@ -108,6 +108,12 @@
   --rail-collapsed: 60px; --rail-expanded: 232px; --topbar-h: 46px;
   --content-max: 1560px;
 
+  /* Global layout grid — used by PageContainer and all route-level wrappers */
+  --page-gutter: clamp(18px, 2.6vw, 44px);
+  --page-max-width: 1200px;
+  --grid-gap: 24px;
+  --card-padding: 20px;
+
   /* Legacy aliases so older component CSS resolves to the new system */
   --bg-app: var(--bg-primary);
   --bg-surface-1: var(--surface);
