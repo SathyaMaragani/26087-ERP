@@ -20,3 +20,9 @@ pnpm-debug.log*
 
 # local dev database & logs (private Postgres used for development)
 .pgdev/
+
+# ad-hoc API testing dumps (contain live auth tokens / session data)
+apps/api/login.json
+apps/api/orgs.json
+apps/api/tok.txt
+apps/api/trainee.json
