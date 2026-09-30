@@ -108,7 +108,7 @@ export function AnalyticsView({ persona }: { persona: UserPersona }) {
                 <div className="span-12 kpi-row">
                   <Metric label="Programmes" value={derived.programmes.length} tone="copper" />
                   <Metric label="Registrations" value={derived.registrations} tone="teal" hint={derived.capacity ? `${Math.round((derived.registrations / derived.capacity) * 100)}% of ${derived.capacity} seats` : undefined} />
-                  <Metric label="Attendance" value={d.inst?.kpis?.attendanceRatePercent ?? 0} suffix="%" tone="indigo" hint="Across sessions, your institution" />
+                  <Metric label="Attendance" value={d.inst?.kpis?.attendanceRatePercent ?? '—'} suffix={d.inst?.kpis?.attendanceRatePercent != null ? '%' : ''} tone="indigo" hint={d.inst?.kpis?.attendanceRatePercent != null ? 'Across sessions, your institution' : 'No attendance marked yet'} />
                   <Metric label="Completion" value={d.cc?.nationalKpis?.completionRatePercent ?? 0} suffix="%" tone="amber" />
                 </div>
                 <div className="span-7"><Question q="Are programmes filling their seats?" hint="Registrations against capacity, per programme.">

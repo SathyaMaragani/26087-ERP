@@ -309,6 +309,8 @@ export class AnalyticsService {
       pendingNominations,
       completedProgrammes,
       hostels,
+      totalAttendanceRecords,
+      presentAttendanceRecords,
     ] = await Promise.all([
       this.prisma.trainingProgramme.count({
         where: { organizationId: orgId, status: { in: ['UPCOMING', 'ONGOING'] } },
@@ -329,12 +331,17 @@ export class AnalyticsService {
       this.prisma.hostelRoom.findMany({
         where: { hostel: { organizationId: orgId } },
       }),
+      this.prisma.attendanceRecord.count({ where: { organizationId: orgId } }),
+      this.prisma.attendanceRecord.count({ where: { organizationId: orgId, status: 'PRESENT' } }),
     ]);
 
     const totalBeds = hostels.reduce((acc, h) => acc + h.bedCapacity, 0);
     const occupiedBeds = hostels.reduce((acc, h) => acc + h.occupiedBeds, 0);
-    const hostelOccupancyRate =
-      totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 78;
+    // No fallback figure when there is nothing on record — an institution with no hostel or no
+    // marked attendance yet reports null, not a plausible-looking placeholder.
+    const hostelOccupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : null;
+    const attendanceRatePercent =
+      totalAttendanceRecords > 0 ? Math.round((presentAttendanceRecords / totalAttendanceRecords) * 100) : null;
 
     return {
       institutionId: orgId,
@@ -342,7 +349,7 @@ export class AnalyticsService {
         activeProgrammes,
         traineesEnrolled: totalTrainees,
         sessionsToday,
-        attendanceRatePercent: 91,
+        attendanceRatePercent,
         hostelOccupancyPercent: hostelOccupancyRate,
         pendingNominations,
         completedProgrammes,

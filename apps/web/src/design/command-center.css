@@ -4,12 +4,16 @@
    page padding/lifecycle strip) and styles the thin instrumentation layer
    around it. No cards, no KPI tile wall.
    ========================================================================== */
-.shell[data-module='home'] .shell-content:has(.cc-root) { padding: 0; overflow: hidden; }
-.shell[data-module='home'] .shell-content:has(.cc-root) .lifebar,
-.shell[data-module='home'] .shell-content:has(.cc-root) > .signal { display: none; }
-.shell[data-module='home'] .page:has(.cc-root) { height: 100%; }
+.shell[data-module='home'] .shell-content:has(.cc-root--full) { padding: 0; overflow: hidden; }
+.shell[data-module='home'] .shell-content:has(.cc-root--full) .lifebar,
+.shell[data-module='home'] .shell-content:has(.cc-root--full) > .signal { display: none; }
+.shell[data-module='home'] .page:has(.cc-root--full) { height: 100%; }
 
-.cc-root { position: relative; width: 100%; height: calc(100svh - var(--topbar-h)); overflow: hidden; background: #F5F1E8; }
+.cc-root { position: relative; width: 100%; overflow: hidden; background: #F5F1E8; }
+.cc-root--full { height: calc(100svh - var(--topbar-h)); }
+/* Embedded mode: a persona home's regional/centre lens — a fixed-height spatial
+   band at the top of an otherwise normal, scrollable page, not the whole viewport. */
+.cc-root--embedded { height: min(64vh, 560px); min-height: 380px; margin-bottom: 28px; border: 1px solid rgba(24, 32, 29, 0.08); }
 .cc-stage { position: absolute; inset: 0; }
 .cc-stage canvas { display: block; touch-action: none; }
 .cc-loading, .cc-fallback { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-mono, monospace); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #69716B; }
