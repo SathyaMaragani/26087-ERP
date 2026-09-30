@@ -35,6 +35,7 @@ export function TopBar({ persona, crumb, onOpenPalette, onVerify, onLogout }: Pr
       </div>
 
       <div className="topbar-actions">
+        <span className="demo-badge" title="Simulated data environment — not live NCCT operational records">Demo environment</span>
         <button className="palette-trigger" onClick={onOpenPalette} aria-label="Open command palette" aria-keyshortcuts="Control+K Meta+K">
           <Search size={15} aria-hidden />
           <span className="palette-trigger-text">Search or jump to…</span>

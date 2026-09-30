@@ -102,6 +102,17 @@ td { border-bottom: 1px solid var(--rule); }
 
 /* ---------- Shell: coordinate rail, quiet top strip ---------- */
 .shell-content { padding: 26px clamp(18px, 2.6vw, 44px) 96px; }
+
+/* ---------- Global page layout container ---------- */
+/* All route-level pages should wrap their content in <div class="page-container">
+   to get a shared left keyline, max-width, gutter, and card rhythm. */
+.page-container { width: 100%; max-width: var(--page-max-width); margin: 0 auto; }
+.page-container > * + * { margin-top: var(--grid-gap); }
+.page-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: var(--grid-gap); }
+.page-grid--2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--grid-gap); }
+.page-grid--3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--grid-gap); }
+@media (max-width: 900px) { .page-grid--2, .page-grid--3 { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .page-grid--3 { grid-template-columns: 1fr; } }
 .rail { background: var(--ink-0); border-right: 1px solid var(--rule); padding: 12px 0; }
 .rail--open { box-shadow: 24px 0 60px -28px rgba(0, 0, 0, 0.9); background: var(--ink-1); }
 .rail-brand { padding-left: 21px; height: 40px; margin-bottom: 8px; }
