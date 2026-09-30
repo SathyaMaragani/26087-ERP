@@ -44,8 +44,12 @@ export function TraineeHome({ persona, onNavigate }: HomeProps) {
               return (
                 <Surface eyebrow="Progress" title="Your learning">
                   <div className="gauges gauges-lg">
-                    <RadialGauge size={168} label="Active courses" value={k.activeCoursesProgressPercent ?? 0} tone="teal" />
-                    <RadialGauge size={168} label="Cooperative management" value={k.cooperativeMgmtProgressPercent ?? 0} tone="copper" />
+                    {k.activeCoursesProgressPercent == null ? (
+                      <EmptyState title="No registrations yet" detail="Programme completion appears once you're registered for one." />
+                    ) : (
+                      <RadialGauge size={168} label="Programme completion" value={k.activeCoursesProgressPercent} tone="teal" />
+                    )}
+                    <EmptyState title="Learning not linked" detail="LMS course activity is a separate system and isn't connected to this training record yet." />
                     <div className="trainee-stats">
                       <button className="stat-link" onClick={() => onNavigate('certificates')}>
                         <Award size={20} aria-hidden /><strong className="num">{k.certificatesEarned ?? 0}</strong><span>Certificates earned</span>

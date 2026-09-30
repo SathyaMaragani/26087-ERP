@@ -37,7 +37,7 @@ export class AnalyticsService {
     const attendanceRate =
       totalAttendance > 0
         ? Math.round((presentAttendance / totalAttendance) * 100)
-        : 100;
+        : null;
 
     // 2. Average Grade & Performance
     const gradeResults = await this.prisma.gradeResult.findMany({
@@ -49,7 +49,7 @@ export class AnalyticsService {
         ? Math.round(
             gradeResults.reduce((acc, g) => acc + g.totalMarks, 0) / gradeResults.length,
           )
-        : 84; // demo default if no grades published yet
+        : null;
 
     // 3. LMS Course Progress & Pending Assignments
     const [totalLessonsCompleted, totalAssignmentsCount, completedAssignmentsCount] =
@@ -198,7 +198,7 @@ export class AnalyticsService {
     const averageAttendanceRate =
       totalAttendanceRecords > 0
         ? Math.round((presentAttendanceRecords / totalAttendanceRecords) * 100)
-        : 88;
+        : null;
 
     return {
       institutionId: orgId,
@@ -374,11 +374,20 @@ export class AnalyticsService {
       where: { status: 'OPEN' },
     });
 
+    // Real completion across this trainee's own registrations — not a placeholder. There is no
+    // LMS/course-progress relation on TraineeProfile (LmsProgress tracks StudentProfile, a
+    // separate academic-side model), so that second figure stays null rather than inventing one.
+    const totalRegistrations = trainee?.registrations.length ?? 0;
+    const completedRegistrations =
+      trainee?.registrations.filter((r) => r.status === 'COMPLETED').length ?? 0;
+    const programmeCompletionPercent =
+      totalRegistrations > 0 ? Math.round((completedRegistrations / totalRegistrations) * 100) : null;
+
     return {
       traineeId: trainee?.id,
       kpis: {
-        activeCoursesProgressPercent: 82,
-        cooperativeMgmtProgressPercent: 61,
+        activeCoursesProgressPercent: programmeCompletionPercent,
+        cooperativeMgmtProgressPercent: null,
         certificatesEarned: trainee?.certificates.length || 0,
         skillsVerifiedCount: trainee?.skills.length || 0,
         matchingOpportunitiesCount: matchingJobsCount,
