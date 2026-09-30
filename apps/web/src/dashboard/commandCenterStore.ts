@@ -21,6 +21,7 @@ export interface CommandCenterHandle {
   returnToNational: () => void;
   setLayer: (key: 'institutions' | 'training' | 'learning' | 'credentials' | 'employment', on: boolean) => void;
   verifyCredentialInView: () => void;
+  showAnalytics: () => void;
 }
 
 export const commandCenterStore: { current: CommandCenterHandle | null } = { current: null };

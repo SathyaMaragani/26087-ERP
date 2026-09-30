@@ -94,6 +94,7 @@ export function CommandPalette({ open, onClose, persona, onNavigate, onVerify, o
         cc('Show learning activity', 'Enable the learning layer', (h) => h.setLayer('learning', true)),
         cc('Show credentials', 'Enable the credentials layer', (h) => h.setLayer('credentials', true)),
         cc('Show employment', 'Enable the employment layer', (h) => h.setLayer('employment', true)),
+        cc('Show analytics', 'Open the national intelligence panel', (h) => h.showAnalytics()),
         cc('Return to national', 'Back out of region/institution focus', (h) => h.returnToNational()),
       );
       if (commandCenterStore.current?.hasCredentialInView) {

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Award, Briefcase, Building2, MapPin, Radio, Sparkles, X } from 'lucide-react';
+import { Activity, Award, Briefcase, Building2, MapPin, Radio, Sparkles, X } from 'lucide-react';
 import { api, tenantApi } from '../api/client';
 import { useAsync } from '../lib/useAsync';
 import { useDeviceTier } from '../lib/device';
@@ -126,6 +126,7 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
   const [cinematicActive, setCinematicActive] = useState(false);
   const cinematicTimer = useRef<number[]>([]);
+  const [showIntel, setShowIntel] = useState(false);
 
   const [pulseActive, setPulseActive] = useState(false);
   const [pulseStep, setPulseStep] = useState(-1);
@@ -139,6 +140,11 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
   const nodes = orgsState.data ?? [];
   const k = state.data?.nationalKpis ?? ({} as any);
   const statePerf: Array<{ state: string; traineesCount: number }> = state.data?.statePerformance ?? [];
+  // Both already returned by the same command-center endpoint the KPI strip uses — real
+  // groupBy() counts, not derived or estimated. There is no time-series endpoint behind this
+  // system, so this stays a live snapshot rather than pretending to chart change over time.
+  const programmesDist: Array<{ category: string; count: number }> = state.data?.programmesDistribution ?? [];
+  const audienceDist: Array<{ type: string; count: number }> = state.data?.targetAudienceDistribution ?? [];
 
   const runPulse = () => {
     pulseTimer.current.forEach((t) => window.clearTimeout(t));
@@ -377,6 +383,7 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
       returnToNational: goNational,
       setLayer: (key, on) => setLayers((l) => ({ ...l, [key]: on })),
       verifyCredentialInView: () => { if (level === 'credential' && credential) verifyCredential(); },
+      showAnalytics: () => setShowIntel(true),
     };
     return () => { commandCenterStore.current = null; };
   });
@@ -498,6 +505,9 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
       <div className="cc-hud cc-hud--bc">
         <button className="cc-pulse-btn" onClick={runPulse} disabled={pulseActive || !nodes.length}>
           <Radio size={13} aria-hidden /> {pulseActive ? 'Network pulse running…' : 'National network pulse'}
+        </button>
+        <button className="cc-pulse-btn" aria-pressed={showIntel} onClick={() => setShowIntel((v) => !v)}>
+          <Activity size={13} aria-hidden /> {showIntel ? 'Hide national intelligence' : 'National intelligence'}
         </button>
       </div>
 
@@ -686,6 +696,58 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
           </aside>
         );
       })()}
+
+      {showIntel && level === 'national' && (
+        <aside className="cc-inspector cc-inspector--intel" role="dialog" aria-label="National intelligence">
+          <button className="cc-inspector-close" onClick={() => setShowIntel(false)} aria-label="Close"><X size={14} /></button>
+          <span className="cc-hud-label"><Activity size={12} aria-hidden /> National intelligence</span>
+          <h3>Live snapshot</h3>
+          <p className="cc-inspector-note">These are real counts from the national registry as of right now. There is no historical or time-series endpoint behind this system yet, so this is a live snapshot only — not a playback of change over time.</p>
+
+          <span className="cc-hud-label">Programmes by category</span>
+          {programmesDist.length === 0 ? <p className="cc-inspector-note">No programmes on record.</p> : (
+            <ul className="cc-intel-bars">
+              {programmesDist.map((p) => (
+                <li key={p.category}>
+                  <span>{p.category}</span>
+                  <i style={{ width: `${Math.round((p.count / Math.max(...programmesDist.map((x) => x.count), 1)) * 100)}%` }} />
+                  <b>{p.count}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <span className="cc-hud-label">Trainees by target audience</span>
+          {audienceDist.length === 0 ? <p className="cc-inspector-note">No trainees on record.</p> : (
+            <ul className="cc-intel-bars">
+              {audienceDist.map((a) => (
+                <li key={a.type}>
+                  <span>{a.type}</span>
+                  <i style={{ width: `${Math.round((a.count / Math.max(...audienceDist.map((x) => x.count), 1)) * 100)}%` }} />
+                  <b>{a.count}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <span className="cc-hud-label">Trainees by state</span>
+          {statePerf.length === 0 ? <p className="cc-inspector-note">No state-linked trainee records yet.</p> : (
+            <ul className="cc-intel-bars">
+              {statePerf.map((s) => (
+                <li key={s.state}>
+                  <button onClick={() => { setShowIntel(false); enterRegionByName(s.state); }}>{s.state}</button>
+                  <i style={{ width: `${Math.round((s.traineesCount / Math.max(...statePerf.map((x) => x.traineesCount), 1)) * 100)}%` }} />
+                  <b>{s.traineesCount}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {k.digitalLearningAdoptionPercent == null && (
+            <p className="cc-inspector-note">Digital learning adoption: data not available — no usage signal is tracked for this yet.</p>
+          )}
+        </aside>
+      )}
 
       {state.error != null && <div className="cc-error">National indicators are unavailable right now.</div>}
     </div>
