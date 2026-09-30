@@ -1,384 +1,90 @@
-import { useState, useEffect } from 'react';
-import { 
-  Building2, 
-  Calendar, 
-  UserCheck, 
-  Users, 
-  Clock, 
-  QrCode, 
-  Home, 
-  BookOpen, 
-  Award, 
-  Briefcase, 
-  Bot, 
-} from 'lucide-react';
-import { api } from './api/client';
-import { DEMO_PERSONAS, UserPersona } from './types';
-import { Navbar } from './components/Navbar';
-import { PersonaModal } from './components/PersonaModal';
+import { useCallback, useEffect, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { AuthProvider, useAuth } from './state/auth';
+import { ToastProvider } from './state/toast';
+import { OfflineProvider } from './state/offline';
+import { navigate, useRoute } from './lib/route';
+import { SceneHost } from './scene/SceneHost';
+import { sceneStore } from './scene/sceneStore';
+import { Landing } from './pages/Landing';
+import { Login } from './pages/Login';
+import { BootSequence } from './pages/BootSequence';
+import { AppShell } from './shell/AppShell';
 import { PublicVerifyModal } from './components/PublicVerifyModal';
-import { CommandCenterView } from './components/CommandCenterView';
-import { ProgrammesView } from './components/ProgrammesView';
-import { NominationsView } from './components/NominationsView';
-import { TraineesView } from './components/TraineesView';
-import { TimetableView } from './components/TimetableView';
-import { AttendanceStudioView } from './components/AttendanceStudioView';
-import { HostelLogisticsView } from './components/HostelLogisticsView';
-import { LmsView } from './components/LmsView';
-import { CertificatesView } from './components/CertificatesView';
-import { EmploymentExchangeView } from './components/EmploymentExchangeView';
-import { CareerAssistantView } from './components/CareerAssistantView';
 
-export function App() {
-  const [currentPersona, setCurrentPersona] = useState<UserPersona>(() => {
-    const saved = localStorage.getItem('erplms_persona');
-    if (saved) {
-      try { return JSON.parse(saved); } catch {}
-    }
-    return DEMO_PERSONAS[0]; // NCCT National Admin
-  });
+const BOOT_FLAG = 'ncct_booted';
+const readBooted = () => { try { return sessionStorage.getItem(BOOT_FLAG) === '1'; } catch { return false; } };
+const writeBooted = () => { try { sessionStorage.setItem(BOOT_FLAG, '1'); } catch { /* storage unavailable */ } };
 
-  const [activeTab, setActiveTab] = useState<string>('command-center');
-  const [isOffline, setIsOffline] = useState<boolean>(false);
-  const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
-  const [showPersonaModal, setShowPersonaModal] = useState<boolean>(false);
-  const [showVerifyModal, setShowVerifyModal] = useState<boolean>(false);
+function Root() {
+  const route = useRoute();
+  const { persona, restoring, logout } = useAuth();
+  const [booted, setBooted] = useState(readBooted);
+  const [sceneAlive, setSceneAlive] = useState(true);
 
-  // Tab definitions with roles
-  const TABS = [
-    {
-      id: 'command-center',
-      label: 'Command Center',
-      icon: Building2,
-      roles: ['NCCT_ADMIN', 'RICM_DIRECTOR'],
-      description: 'National overview & state performance',
-    },
-    {
-      id: 'programmes',
-      label: 'Programmes & Batches',
-      icon: Calendar,
-      roles: ['NCCT_ADMIN', 'RICM_DIRECTOR', 'RICM_COORDINATOR'],
-      description: 'Training calendar & batch lifecycle',
-    },
-    {
-      id: 'nominations',
-      label: 'Nominations & Approvals',
-      icon: UserCheck,
-      roles: ['NCCT_ADMIN', 'RICM_DIRECTOR', 'RICM_COORDINATOR'],
-      description: 'Institutional quotas & enrollment',
-    },
-    {
-      id: 'trainees',
-      label: 'Trainees Directory',
-      icon: Users,
-      roles: ['NCCT_ADMIN', 'RICM_DIRECTOR', 'RICM_COORDINATOR', 'TRAINER', 'RECRUITER'],
-      description: 'Longitudinal profiles & skills',
-    },
-    {
-      id: 'timetable',
-      label: 'Timetable & Scheduling',
-      icon: Clock,
-      roles: ['NCCT_ADMIN', 'RICM_DIRECTOR', 'RICM_COORDINATOR', 'TRAINER'],
-      description: 'Room & trainer conflict prevention',
-    },
-    {
-      id: 'attendance',
-      label: 'QR & Face Attendance',
-      icon: QrCode,
-      roles: ['NCCT_ADMIN', 'RICM_COORDINATOR', 'TRAINER', 'TRAINEE'],
-      description: 'Rotating dynamic QR & privacy-first facial verification',
-    },
-    {
-      id: 'hostel-logistics',
-      label: 'Hostel & Logistics',
-      icon: Home,
-      roles: ['NCCT_ADMIN', 'RICM_DIRECTOR', 'RICM_COORDINATOR'],
-      description: 'Residential occupancy & supply kits',
-    },
-    {
-      id: 'lms',
-      label: 'Multilingual LMS',
-      icon: BookOpen,
-      roles: ['NCCT_ADMIN', 'RICM_COORDINATOR', 'TRAINER', 'TRAINEE'],
-      description: 'English, Hindi, Telugu lessons & offline sync',
-    },
-    {
-      id: 'certificates',
-      label: 'Digital Certificates',
-      icon: Award,
-      roles: ['NCCT_ADMIN', 'RICM_DIRECTOR', 'RICM_COORDINATOR', 'TRAINEE', 'RECRUITER'],
-      description: 'Tamper-proof verifiable credentials with public QR',
-    },
-    {
-      id: 'employment',
-      label: 'Employment Exchange',
-      icon: Briefcase,
-      roles: ['NCCT_ADMIN', 'RICM_DIRECTOR', 'RECRUITER', 'TRAINEE'],
-      description: 'AI Skill-matching engine & 1-click apply',
-    },
-    {
-      id: 'career',
-      label: 'Career Counselor AI',
-      icon: Bot,
-      roles: ['NCCT_ADMIN', 'TRAINEE', 'RICM_COORDINATOR'],
-      description: 'Grounded guidance on courses & jobs',
-    },
-  ];
+  const wantsApp = route.name === 'app';
+  const booting = !!persona && wantsApp && !booted;
+  const inApp = !!persona && wantsApp && booted;
 
-  // Filter tabs for the active persona's role
-  const availableTabs = TABS.filter(t => t.roles.includes(currentPersona.role));
-
-  // If current active tab is not allowed for the newly selected persona, switch to their first permitted tab
+  // Route guards.
   useEffect(() => {
-    if (!availableTabs.some(t => t.id === activeTab)) {
-      if (availableTabs.length > 0) {
-        setActiveTab(availableTabs[0].id);
-      }
-    }
-  }, [currentPersona]);
+    if (restoring) return;
+    if (wantsApp && !persona) navigate('#/login');
+    else if (route.name === 'login' && persona) navigate('#/app');
+  }, [route.name, wantsApp, persona, restoring]);
 
-  const handleSelectPersona = (persona: UserPersona) => {
-    setCurrentPersona(persona);
-    localStorage.setItem('erplms_persona', JSON.stringify(persona));
-    // Set appropriate default view for each role
-    if (persona.role === 'TRAINEE') {
-      setActiveTab('lms');
-    } else if (persona.role === 'RECRUITER') {
-      setActiveTab('employment');
-    } else if (persona.role === 'TRAINER') {
-      setActiveTab('attendance');
-    } else if (persona.role === 'RICM_COORDINATOR') {
-      setActiveTab('programmes');
-    } else {
-      setActiveTab('command-center');
-    }
-  };
+  // A signed-out session must boot again next time.
+  useEffect(() => { if (!persona && !restoring) setBooted(false); }, [persona, restoring]);
 
-  const handleToggleOffline = () => {
-    const next = !isOffline;
-    setIsOffline(next);
-  };
+  useEffect(() => { window.scrollTo(0, 0); }, [route.name]);
 
-  const [offlineSyncQueue, setOfflineSyncQueue] = useState<any[]>([]);
+  // The environment flies inward while the platform initialises.
+  useEffect(() => {
+    if (!booting) return;
+    sceneStore.damping = 1.1;
+    sceneStore.parallax = 0.25;
+    sceneStore.tint = null;
+    sceneStore.target = 1;
+  }, [booting]);
 
-  const handleAddOfflineItem = (item: any) => {
-    setOfflineSyncQueue((prev) => [...prev, item]);
-  };
+  // Release the GPU once the application has fully taken over.
+  useEffect(() => {
+    if (!inApp && route.name !== 'landing' && route.name !== 'login') { setSceneAlive(true); return; }
+    const t = window.setTimeout(() => setSceneAlive(false), 1000);
+    return () => window.clearTimeout(t);
+  }, [inApp, route.name]);
 
-  const handleSyncOffline = async () => {
-    if (offlineSyncQueue.length === 0) return;
-    try {
-      await api.lms.syncOffline(offlineSyncQueue);
-      alert(`Synchronized ${offlineSyncQueue.length} offline items to national NCCT repository!`);
-      setOfflineSyncQueue([]);
-    } catch {
-      alert(`Synchronized ${offlineSyncQueue.length} items successfully!`);
-      setOfflineSyncQueue([]);
-    }
-  };
+  const onBootDone = useCallback(() => { writeBooted(); setBooted(true); }, []);
+  const onLogout = useCallback(() => { logout(); navigate('#/'); }, [logout]);
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
-      {/* Top Navigation */}
-      <Navbar 
-        currentPersona={currentPersona}
-        onSwitchPersona={() => setShowPersonaModal(true)}
-        isOffline={isOffline}
-        onToggleOffline={handleToggleOffline}
-        pendingSyncCount={offlineSyncQueue.length}
-        onOpenPublicVerify={() => setShowVerifyModal(true)}
-      />
+    <>
+      {/* The dark ink-blue 3D scene is the landing hero's own backdrop; the rest of the site
+          (login onward) is Monsoon Porcelain now, so it has no use for that scene either. */}
+      {sceneAlive && <SceneHost hidden={inApp || route.name === 'landing' || route.name === 'login'} />}
 
-      {/* Main Container */}
-      <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', padding: '1.25rem 1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        
-        {/* Persona quick switch reminder banner */}
-        <div style={{ 
-          background: 'rgba(59, 130, 246, 0.08)', 
-          border: '1px solid rgba(59, 130, 246, 0.25)', 
-          borderRadius: 'var(--radius-md)', 
-          padding: '0.65rem 1.25rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1rem',
-          flexWrap: 'wrap',
-          gap: '0.5rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Viewing as:</span>
-            <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>{currentPersona.name}</strong>
-            <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>{currentPersona.role.replace('_', ' ')}</span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>• {currentPersona.instituteName}</span>
-          </div>
+      {(route.name === 'landing' || route.name === 'verify') && <Landing signedIn={!!persona} />}
+      {route.name === 'login' && !persona && !restoring && <Login />}
+      {wantsApp && restoring && <div className="restoring" role="status">Restoring your session…</div>}
+      {inApp && persona && <AppShell persona={persona} moduleParam={route.param} onLogout={onLogout} />}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Quick switch persona:</span>
-            {DEMO_PERSONAS.map(p => (
-              <button
-                key={p.id}
-                onClick={() => handleSelectPersona(p)}
-                style={{
-                  fontSize: '0.72rem',
-                  padding: '0.2rem 0.5rem',
-                  borderRadius: '4px',
-                  border: currentPersona.id === p.id ? '1px solid var(--primary-light)' : '1px solid rgba(255,255,255,0.1)',
-                  background: currentPersona.id === p.id ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.03)',
-                  color: currentPersona.id === p.id ? '#fff' : 'var(--text-secondary)',
-                  cursor: 'pointer'
-                }}
-              >
-                {p.name.split(' ')[0]} ({p.role.split('_')[0]})
-              </button>
-            ))}
-          </div>
-        </div>
+      <AnimatePresence>
+        {booting && persona && <BootSequence key="boot" persona={persona} onDone={onBootDone} />}
+      </AnimatePresence>
 
-        {/* Tab Navigation Bar */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '0.4rem', 
-          overflowX: 'auto', 
-          paddingBottom: '0.5rem', 
-          marginBottom: '1.25rem',
-          borderBottom: '1px solid var(--border-glass)'
-        }}>
-          {availableTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.6rem 1rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.85rem',
-                  fontWeight: isActive ? 600 : 500,
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  border: isActive ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid transparent',
-                  background: isActive ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                  color: isActive ? 'var(--primary-light)' : 'var(--text-secondary)',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <Icon size={16} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Tab View Container */}
-        <div style={{ flex: 1 }}>
-          {activeTab === 'command-center' && (
-            <CommandCenterView />
-          )}
-
-          {activeTab === 'programmes' && (
-            <ProgrammesView />
-          )}
-
-          {activeTab === 'nominations' && (
-            <NominationsView />
-          )}
-
-          {activeTab === 'trainees' && (
-            <TraineesView />
-          )}
-
-          {activeTab === 'timetable' && (
-            <TimetableView />
-          )}
-
-          {activeTab === 'attendance' && (
-            <AttendanceStudioView />
-          )}
-
-          {activeTab === 'hostel-logistics' && (
-            <HostelLogisticsView />
-          )}
-
-          {activeTab === 'lms' && (
-            <LmsView 
-              isOffline={isOffline}
-              offlineSyncCount={offlineSyncQueue.length}
-              onAddOfflineItem={handleAddOfflineItem}
-              onSyncOffline={handleSyncOffline}
-            />
-          )}
-
-          {activeTab === 'certificates' && (
-            <CertificatesView 
-              currentPersona={currentPersona} 
-              onOpenPublicVerify={() => setShowVerifyModal(true)}
-            />
-          )}
-
-          {activeTab === 'employment' && (
-            <EmploymentExchangeView currentPersona={currentPersona} />
-          )}
-
-          {activeTab === 'career' && (
-            <CareerAssistantView 
-              currentPersona={currentPersona} 
-              onNavigateTab={(tab: string) => setActiveTab(tab)}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer style={{ 
-        borderTop: '1px solid var(--border-glass)', 
-        padding: '1.25rem 2rem', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        flexWrap: 'wrap', 
-        gap: '1rem',
-        fontSize: '0.8rem',
-        color: 'var(--text-muted)',
-        background: 'rgba(10, 15, 29, 0.6)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>© 2026 National Council for Cooperative Training (NCCT) • Ministry of Cooperation, Govt. of India</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          <button 
-            className="btn-ghost" 
-            onClick={() => setShowVerifyModal(true)}
-            style={{ fontSize: '0.8rem', color: 'var(--primary-light)', padding: 0 }}
-          >
-            Public Certificate Verifier
-          </button>
-          <span>•</span>
-          <span>14 RICMs & 5 ICMs Interconnected</span>
-          <span>•</span>
-          <span style={{ color: '#34d399' }}>System Operational (v2.6)</span>
-        </div>
-      </footer>
-
-      {/* Modals */}
-      {showPersonaModal && (
-        <PersonaModal 
-          currentPersona={currentPersona}
-          onSelectPersona={handleSelectPersona}
-          onClose={() => setShowPersonaModal(false)}
-        />
-      )}
-
-      {showVerifyModal && (
-        <PublicVerifyModal 
-          onClose={() => setShowVerifyModal(false)}
-        />
-      )}
-    </div>
+      <PublicVerifyModal isOpen={route.name === 'verify'} initialCode={route.param} onClose={() => navigate(persona && booted ? '#/app' : '#/')} />
+    </>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <ToastProvider>
+      <AuthProvider>
+        <OfflineProvider>
+          <Root />
+        </OfflineProvider>
+      </AuthProvider>
+    </ToastProvider>
+  );
+}

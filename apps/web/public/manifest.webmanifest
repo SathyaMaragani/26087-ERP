@@ -1,0 +1,13 @@
+{
+  "name": "NCCT — National Digital Ecosystem",
+  "short_name": "NCCT",
+  "description": "Cooperative training, multilingual learning, skills, certification and employment on one platform.",
+  "start_url": "/#/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0c0e",
+  "theme_color": "#0a0c0e",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
