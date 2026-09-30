@@ -4,6 +4,7 @@
   "private": true,
   "description": "Multi-Tenant Institution Operating System (ERP + LMS)",
   "scripts": {
+    "postinstall": "pnpm --filter @erplms/api prisma:generate",
     "dev:api": "pnpm --filter @erplms/api dev",
     "build:api": "pnpm --filter @erplms/api build",
     "test:api": "pnpm --filter @erplms/api test",
