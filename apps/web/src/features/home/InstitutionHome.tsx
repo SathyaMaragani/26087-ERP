@@ -1,5 +1,6 @@
 import { api } from '../../api/client';
 import { useAsync } from '../../lib/useAsync';
+import { CommandCenter } from '../../dashboard/CommandCenter';
 import { RadialGauge } from '../../ui/charts';
 import { Timeline } from '../../ui/charts';
 import { Metric } from '../../ui/Metric';
@@ -13,6 +14,11 @@ export function InstitutionHome({ persona, onNavigate }: HomeProps) {
 
   return (
     <>
+      {/* Same spatial system as the national command center — same camera, same materials,
+          same interactions — auto-focused into this director's own region/institution rather
+          than the whole national map. Everything below is the same real operational data this
+          page already showed; only the presentation above it changed. */}
+      <CommandCenter persona={persona} onNavigate={onNavigate} embedded />
       <PageHeader eyebrow="Institution Command" title={<>{greeting()}, {firstName(persona.name)}</>} description={persona.instituteName} />
       <div className="home-grid">
         <div className="span-12">
@@ -42,7 +48,7 @@ export function InstitutionHome({ persona, onNavigate }: HomeProps) {
 
         <div className="span-4">
           <Surface eyebrow="Attendance" title="Across sessions">
-            <Async state={ops}>{(d) => <div className="center"><RadialGauge label="Attendance rate" value={d.kpis?.attendanceRatePercent ?? 0} tone="teal" size={156} /></div>}</Async>
+            <Async state={ops}>{(d) => d.kpis?.attendanceRatePercent == null ? <EmptyState title="No attendance marked yet" detail="A rate appears once sessions are recorded for this institution." /> : <div className="center"><RadialGauge label="Attendance rate" value={d.kpis.attendanceRatePercent} tone="teal" size={156} /></div>}</Async>
           </Surface>
         </div>
         <div className="span-4">

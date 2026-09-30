@@ -36,7 +36,7 @@ function useClock() {
  * nothing here is invented, and anything the backend doesn't track (e.g. per-institution trainee
  * counts) is simply omitted rather than guessed.
  */
-export function CommandCenter({ persona, onNavigate }: HomeProps) {
+export function CommandCenter({ persona, onNavigate, embedded = false }: HomeProps & { embedded?: boolean }) {
   const tier = useDeviceTier();
   const now = useClock();
   const state = useAsync(() => api.analytics.getCommandCenter(), []);
@@ -223,6 +223,23 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
     setFocusDistance(4.3);
   };
 
+  // Same world, different lens: NCCT_ADMIN lands on the national view (unchanged), but every
+  // other persona's Home embeds this same component and should land already focused on their
+  // own institution/region rather than the full national map — "the director sees the region."
+  // Runs once, as soon as the real institution list resolves; onSelect/enterRegionByName are the
+  // exact same functions the national view itself uses to drill down, so this is real navigation,
+  // not a separate visualization.
+  const autoFocused = useRef(false);
+  useEffect(() => {
+    if (persona.role === 'NCCT_ADMIN' || autoFocused.current || !nodes.length) return;
+    autoFocused.current = true;
+    const own = nodes.find((n) => n.id === persona.organizationId);
+    if (!own) return;
+    if (own.state) enterRegionByName(own.state);
+    else onSelect(own, institutionPosition(own.state, own.id.length + own.id.charCodeAt(0)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length]);
+
   // "PROGRAMMES" on the institution twin: institution stays visible, camera pulls back slightly
   // (further than the institution's own 4.3) so its programme ring has room to appear around it.
   const enterProgrammeList = () => {
@@ -340,7 +357,26 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
       t += 2400;
     }
     push(t, () => { setLevel('trainee'); setVerifyState('idle'); focus.current.copy(anchor); setFocusDistance(2.2); });
-    t += 1600;
+    t += 1400;
+
+    // THE NETWORK PULLBACK: the trainee recedes into their institution, the institution recedes
+    // into its region, the region recedes into the nation — the exact same real positions and
+    // FocusLevel states the manual national → region → institution drill-down already uses, just
+    // played in reverse. No new geometry, no invented data — one continuous camera move outward.
+    if (selected) {
+      const inst = selected;
+      const instPos = institutionPosition(inst.state, inst.id.length + inst.id.charCodeAt(0));
+      // Clearing programme/trainee here too, not just changing `level` — so the breadcrumb
+      // itself recedes in step with the camera instead of still naming a trainee the camera
+      // has already pulled back from.
+      push(t, () => { setSelectedTrainee(null); setSelectedProgramme(null); setLevel('institution'); focus.current.copy(instPos); setFocusDistance(4.3); });
+      t += 1500;
+      if (inst.state) {
+        const region = inst.state;
+        push(t, () => { setSelected(null); setLevel('region'); setSelectedRegion(region); focus.current.copy(regionPosition(region)); setFocusDistance(9.2); });
+        t += 1600;
+      }
+    }
     push(t, () => { goNational(); setCinematicActive(false); });
   };
 
@@ -397,7 +433,7 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
   ];
 
   return (
-    <div className="cc-root">
+    <div className={`cc-root ${embedded ? 'cc-root--embedded' : 'cc-root--full'}`}>
       <div className="cc-stage">
         {tier.webgl ? (
           <Suspense fallback={<div className="cc-loading">Loading the national network…</div>}>
@@ -444,11 +480,11 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
       {/* — instrumentation layer: minimal, corners only, never covers the scene — */}
       <div className="cc-hud cc-hud--tl">
         <span className="cc-brand">NCCT</span>
-        <span className="cc-brand-sub">National Digital Infrastructure</span>
+        <span className="cc-brand-sub">{persona.role === 'NCCT_ADMIN' ? 'National Digital Infrastructure' : persona.instituteName}</span>
       </div>
 
       <div className="cc-hud cc-hud--tc">
-        <span className="cc-live"><i /> Live national system</span>
+        <span className="cc-live"><i /> {persona.role === 'NCCT_ADMIN' ? 'Live national system' : 'Live institutional system'}</span>
         {level === 'national' && hoveredRegion && <span className="cc-hover-region"><MapPin size={11} aria-hidden /> {hoveredRegion}</span>}
       </div>
 
@@ -504,7 +540,7 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
 
       <div className="cc-hud cc-hud--bc">
         <button className="cc-pulse-btn" onClick={runPulse} disabled={pulseActive || !nodes.length}>
-          <Radio size={13} aria-hidden /> {pulseActive ? 'Network pulse running…' : 'National network pulse'}
+          <Radio size={13} aria-hidden /> {pulseActive ? 'Network pulse running…' : persona.role === 'NCCT_ADMIN' ? 'National network pulse' : 'Institution network pulse'}
         </button>
         <button className="cc-pulse-btn" aria-pressed={showIntel} onClick={() => setShowIntel((v) => !v)}>
           <Activity size={13} aria-hidden /> {showIntel ? 'Hide national intelligence' : 'National intelligence'}
@@ -596,7 +632,7 @@ export function CommandCenter({ persona, onNavigate }: HomeProps) {
               <p className="cc-inspector-note">Learning and assessment have no relation to training registrations in the current schema — shown honestly, not fabricated. Click a lit stage in the 3D view to open it.</p>
               {(traineeSignal.certified || traineeSignal.skillsCount > 0 || traineeSignal.employed) && (
                 <button className="cc-inspector-link" onClick={playOutcomeCinematic} disabled={cinematicActive}>
-                  {cinematicActive ? 'Playing outcome journey…' : '▶ Play outcome journey'}
+                  {cinematicActive ? 'Playing…' : '▶ Play the network pullback'}
                 </button>
               )}
             </>
