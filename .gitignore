@@ -26,3 +26,5 @@ apps/api/login.json
 apps/api/orgs.json
 apps/api/tok.txt
 apps/api/trainee.json
+.vercel
+.env*

@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'api'
 
 allowBuilds:
   '@nestjs/core': true

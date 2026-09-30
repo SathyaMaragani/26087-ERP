@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm --filter @erplms/api prisma:generate && pnpm --filter @erplms/web build",
+  "buildCommand": "pnpm --filter @erplms/web build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install",
   "framework": null,
