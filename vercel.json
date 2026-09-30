@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm --filter @erplms/web build",
+  "buildCommand": "pnpm --filter @erplms/vercel-api exec prisma generate --schema=../apps/api/prisma/schema.prisma && pnpm --filter @erplms/web build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install",
   "framework": null,
