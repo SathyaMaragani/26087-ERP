@@ -132,7 +132,7 @@ function IndiaModel() {
       if ((obj as THREE.Mesh).isMesh) {
         const mesh = obj as THREE.Mesh;
         mesh.receiveShadow = true;
-        mesh.castShadow = false;
+        mesh.castShadow = true;
         // Defensive: the base mesh merges ~800 ring polygons from real GIS boundary data whose
         // winding order isn't guaranteed consistent; render both sides so the landmass is never
         // invisible from the default camera angle regardless of any remaining normal flips.
@@ -515,9 +515,10 @@ function Scene({
   return (
     <>
       <CameraRig focus={focus} focusDistance={focusDistance} />
-      <ambientLight intensity={0.8} color="#91B3A5" />
-      <directionalLight position={[4, 7, 3]} intensity={1.1} color="#F5F1E8" castShadow shadow-mapSize={[1024, 1024]} />
-      <directionalLight position={[-5, 4, -3]} intensity={0.35} color="#3E7C6A" />
+      <ambientLight intensity={0.45} color="#91B3A5" />
+      <directionalLight position={[4, 7, 3]} intensity={1.6} color="#FBF9F4" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0015} />
+      <directionalLight position={[-5, 3.5, -3]} intensity={0.4} color="#3E7C6A" />
+      <directionalLight position={[-2, 2, 6]} intensity={0.22} color="#D4A04D" />
       <group ref={group}>
         <Suspense fallback={null}>
           <IndiaModel />
