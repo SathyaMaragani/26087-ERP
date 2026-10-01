@@ -249,7 +249,6 @@ def main():
     root = make_collection("NCCT_INDIA")
     col_base = make_collection("INDIA_BASE", root)
     col_boundaries = make_collection("BOUNDARIES", root)
-    col_network = make_collection("NETWORK_SURFACE", root)
 
     base_obj = build_base_mesh(states)
     col_base.objects.link(base_obj)
@@ -269,9 +268,11 @@ def main():
     assign_material(boundary_obj, "NCCT_Boundary", PALE_JADE, roughness=0.5)
     log(f"built boundary curve object with {ring_count} ring splines")
 
-    network_obj = build_network_surface(states)
-    col_network.objects.link(network_obj)
-    assign_material(network_obj, "NCCT_NetworkSurface", WARM_WHITE, roughness=0.95)
+    # No NETWORK_SURFACE backdrop plane: it rendered as an obvious flat gray square/diamond
+    # edge around the landmass at any non-top-down camera angle instead of reading as a quiet
+    # backdrop. build_network_surface() is kept below if a future design wants it back with a
+    # transparent/unlit material instead.
+    _ = build_network_surface  # intentionally unused — see note above
 
     # Apply all modifiers / convert the boundary curve to a mesh before export
     # (GLTF exporter respects export_apply for modifiers, but the curve→mesh
