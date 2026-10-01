@@ -20,32 +20,6 @@
 .cc-fallback { flex-direction: column; gap: 0; }
 .cc-fallback svg { width: min(70%, 420px); height: auto; }
 
-/* Static India network hero visual */
-.cc-india-visual {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  overflow: hidden;
-}
-.cc-india-visual img {
-  width: min(72vw, 1100px);
-  max-height: 94%;
-  height: auto;
-  object-fit: contain;
-  mix-blend-mode: screen;
-  opacity: 0.95;
-  filter: drop-shadow(0 0 80px rgba(62, 124, 106, 0.12));
-  transform-origin: center center;
-  transition: transform 1.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
-}
-/* Subtle zoom-in when region or institution is focused */
-.cc-india-visual--region img { transform: scale(1.14); }
-.cc-india-visual--institution img { transform: scale(1.28); }
-.cc-india-visual--deep img { transform: scale(1.45); opacity: 0.75; }
-
 /* — instrumentation: corner-anchored, never a panel that covers the scene — */
 .cc-hud { position: absolute; z-index: 3; pointer-events: none; }
 .cc-hud * { pointer-events: auto; }

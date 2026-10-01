@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { mulberry32, projectLonLat, STATE_LONLAT, terrain } from '../scene/india';
 import { regionPosition } from './regionGeo';
 
@@ -109,11 +111,38 @@ function CameraRig({ focus, focusDistance }: { focus: THREE.Vector3; focusDistan
   return null;
 }
 
-/* IndiaSilhouette and Terrain have been replaced by the static India heritage map image
-   (public/assets/ncct-india-network.png) rendered as a CSS layer behind the transparent WebGL
-   canvas. This preserves all 3D institution/programme/trainee interaction while delivering a
-   more premium cartographic base. The image uses mix-blend-mode:screen to shed its black
-   background against the dark command-center ground. */
+/* The India landmass is a genuine Blender-built GLB (public/models/ncct-india.glb) — a real
+   extruded/bevelled mesh derived from current administrative-boundary data (state borders
+   including Telangana/Ladakh/Odisha/Uttarakhand), not a procedural approximation or a flat
+   image. Built by scripts/blender-india/build_india.py using the SAME equirectangular
+   projection (LON0=82.5, LAT0=22.0, SCALE=0.3) as nodePosition()/regionPosition() below, so
+   institution markers land on the correct geography without any change to that logic. Export
+   used Blender's Y-up glTF convention (Blender Z→glTF Y, Blender Y→glTF -Z), which already
+   matches this file's `z = -y` convention — no coordinate remapping needed at runtime. */
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+
+function IndiaModel() {
+  const gltf = useLoader(GLTFLoader, '/models/ncct-india.glb', (loader) => {
+    (loader as GLTFLoader).setDRACOLoader(dracoLoader);
+  });
+  const scene = useMemo(() => gltf.scene.clone(true), [gltf]);
+  useEffect(() => {
+    scene.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh) {
+        const mesh = obj as THREE.Mesh;
+        mesh.receiveShadow = true;
+        mesh.castShadow = false;
+        // Defensive: the base mesh merges ~800 ring polygons from real GIS boundary data whose
+        // winding order isn't guaranteed consistent; render both sides so the landmass is never
+        // invisible from the default camera angle regardless of any remaining normal flips.
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        mats.forEach((m) => { if (m) (m as THREE.Material).side = THREE.DoubleSide; });
+      }
+    });
+  }, [scene]);
+  return <primitive object={scene} />;
+}
 
 function InstitutionMarker({ node, active, selected, dim, pulse, onSelect }: { node: InstitutionNode; active: boolean; selected: boolean; dim: boolean; pulse: number; onSelect: (n: InstitutionNode, pos: THREE.Vector3) => void }) {
   const pos = useMemo(() => nodePosition(node.state, node.id.length + node.id.charCodeAt(0)), [node]);
@@ -490,7 +519,9 @@ function Scene({
       <directionalLight position={[4, 7, 3]} intensity={1.1} color="#F5F1E8" castShadow shadow-mapSize={[1024, 1024]} />
       <directionalLight position={[-5, 4, -3]} intensity={0.35} color="#3E7C6A" />
       <group ref={group}>
-        {/* India base visual is now the static heritage map image behind the canvas — see cc-india-visual in CommandCenter.tsx */}
+        <Suspense fallback={null}>
+          <IndiaModel />
+        </Suspense>
         {level === 'national' && regions.map((r) => (
           <RegionMarker key={r.state} state={r.state} count={r.count} focused={false} onSelect={onSelectRegion} onHover={onHoverRegion} />
         ))}
@@ -535,7 +566,7 @@ function Scene({
 
 export default function CommandCenterWorld(props: WorldProps) {
   return (
-    <Canvas dpr={[1, 1.75]} camera={{ fov: 38, position: [5.2, 16.8, 6.6] }} gl={{ antialias: true, alpha: true }} shadows aria-label="Interactive 3D map of the NCCT national network" style={{ background: 'transparent' }}>
+    <Canvas dpr={[1, 1.75]} camera={{ fov: 38, position: [0.6, 16.8, 8.5] }} gl={{ antialias: true, alpha: true }} shadows aria-label="Interactive 3D map of the NCCT national network" style={{ background: 'transparent' }}>
       <Scene {...props} />
     </Canvas>
   );
