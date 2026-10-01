@@ -1,22 +1,13 @@
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, Eye, EyeOff, LogIn } from 'lucide-react';
-import { sceneStore, stageToProgress } from '../scene/sceneStore';
 import { navigate } from '../lib/route';
 import { useAuth } from '../state/auth';
+import { ApiError } from '../api/client';
 import { DEMO_ACCOUNTS, ROLE_META, type UiRole } from '../types';
 import { Button } from '../ui/primitives';
 import { Wordmark } from '../ui/Wordmark';
-
-/** Each workspace previews its own environment behind the form. */
-const ROLE_SCENE: Record<UiRole, { stage: number; tint: [number, number, number] | null }> = {
-  NCCT_ADMIN: { stage: 1, tint: null },                       // institutional network
-  RICM_DIRECTOR: { stage: 5, tint: [0.95, 0.66, 0.44] },      // outcomes & analytics
-  RICM_COORDINATOR: { stage: 2, tint: [0.95, 0.66, 0.44] },   // programme constellations
-  TRAINER: { stage: 6, tint: [0.5, 0.56, 0.98] },             // knowledge network
-  TRAINEE: { stage: 2, tint: [0.4, 0.86, 0.8] },              // learning network
-  RECRUITER: { stage: 4, tint: [0.55, 0.6, 0.98] },           // talent network
-};
+import { NCCTNetworkGateway } from './NCCTNetworkGateway';
 
 export function Login() {
   const reduce = useReducedMotion();
@@ -28,21 +19,6 @@ export function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<UiRole | null>(null);
-
-  useEffect(() => {
-    sceneStore.damping = 1.5;
-    sceneStore.parallax = 0.8;
-    sceneStore.fade = 1;
-    sceneStore.composition = 0;
-    sceneStore.shiftX = window.innerWidth >= 1000 ? -3.6 : 0;
-    return () => { sceneStore.shiftX = 0; };
-  }, []);
-
-  useEffect(() => {
-    const cfg = preview ? ROLE_SCENE[preview] : { stage: 1, tint: null };
-    sceneStore.target = stageToProgress(cfg.stage);
-    sceneStore.tint = cfg.tint;
-  }, [preview]);
 
   const pick = (a: (typeof DEMO_ACCOUNTS)[number]) => {
     setPreview(a.role); setEmail(a.email); setPassword(a.password); setError('');
@@ -56,8 +32,14 @@ export function Login() {
       await login(email.trim(), password);
       navigate('#/app');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Sign-in failed';
-      setError(/invalid|unauthor|credential/i.test(msg) ? 'Those credentials were not recognised.' : msg);
+      if (err instanceof ApiError && err.status === 0) {
+        setError('Unable to reach the NCCT service. Check your connection and try again.');
+      } else if (err instanceof ApiError && err.status >= 500) {
+        setError('The NCCT service is temporarily unavailable. Please try again shortly.');
+      } else {
+        const msg = err instanceof Error ? err.message : 'Sign-in failed';
+        setError(/invalid|unauthor|credential/i.test(msg) ? 'Those credentials were not recognised.' : msg);
+      }
       setBusy(false);
     }
   };
@@ -111,6 +93,8 @@ export function Login() {
           </div>
         )}
       </motion.div>
+
+      <NCCTNetworkGateway />
     </div>
   );
 }
