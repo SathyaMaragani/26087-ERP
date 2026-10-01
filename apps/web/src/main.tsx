@@ -7,7 +7,6 @@ import './design/credentials.css'
 import './design/features.css'
 import './design/atlas.css'
 import './design/dashboard.css'
-import './design/network.css'
 import './design/command-center.css'
 import App from './App.tsx'
 
