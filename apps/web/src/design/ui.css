@@ -80,11 +80,24 @@
 .land-foot { position: fixed; right: clamp(16px, 3vw, 40px); bottom: 14px; z-index: 20; font-size: 11px; color: var(--text-tertiary); opacity: 0.7; pointer-events: none; }
 
 /* -------------------------------------------------------------------- Login */
-.login { min-height: 100svh; display: flex; align-items: center; padding: 96px clamp(20px, 6vw, 96px) 40px; }
+.login {
+  min-height: 100svh; display: grid; grid-template-columns: minmax(360px, 470px) 1fr;
+  align-items: center; gap: clamp(24px, 5vw, 96px); padding: 96px clamp(20px, 6vw, 96px) 40px;
+}
 .login-card {
   width: min(470px, 100%); padding: 2rem; border-radius: var(--radius-xl);
   background: rgba(14, 17, 20, 0.82); backdrop-filter: var(--blur-lg); -webkit-backdrop-filter: var(--blur-lg);
   border: 1px solid var(--border-default); box-shadow: var(--shadow-lg);
+  grid-column: 1; position: relative; z-index: 2;
+}
+@media (max-width: 1024px) {
+  .login { display: flex; flex-direction: column; }
+  .login-card { width: 100%; max-width: 560px; }
+  .gateway { height: 280px; margin-top: 28px; width: 100%; }
+}
+@media (max-width: 640px) {
+  .login { padding-top: 76px; }
+  .gateway { height: 220px; }
 }
 .login-sub { color: var(--text-secondary); margin-bottom: 1.6rem; font-size: 14px; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; }
@@ -101,6 +114,46 @@
 .demo-chip:hover { border-color: var(--border-strong); background: var(--surface-elevated); }
 .demo-chip.is-active { border-color: rgba(79, 191, 179, 0.6); background: var(--accent-secondary-soft); }
 .restoring { position: fixed; inset: 0; display: grid; place-items: center; z-index: var(--z-content); color: var(--text-tertiary); font-size: 13px; letter-spacing: 0.1em; }
+
+/* ---------------------------------------------- Login gateway: the NCCT living network, login-scale */
+.gateway { grid-column: 2; position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; height: min(620px, 70vh); pointer-events: none; }
+.gateway-svg { width: 100%; height: 100%; max-width: 560px; overflow: visible; }
+.gateway-india { fill: rgba(145, 179, 165, 0.07); stroke: rgba(145, 179, 165, 0.35); stroke-width: 1; }
+
+.gateway-link { stroke: rgba(62, 124, 106, 0.3); stroke-width: 0.6; stroke-dasharray: 3 3; opacity: 0; animation: gateway-fade-in 1s ease forwards; }
+.gateway-journey-path { fill: none; stroke: rgba(169, 97, 59, 0.28); stroke-width: 0.8; }
+.gateway-journey { opacity: 0; animation: gateway-fade-in 1.2s ease forwards; }
+.gateway-journey-dot { fill: #A9613B; filter: drop-shadow(0 0 3px rgba(169, 97, 59, 0.6)); }
+
+.gateway-node-group { opacity: 0; animation: gateway-rise-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; pointer-events: auto; }
+.gateway-node { transition: r 0.2s ease; }
+.gateway-node--hub { fill: #18201D; }
+.gateway-node--primary { fill: #3E7C6A; }
+.gateway-node--stage { fill: #7897A0; }
+.gateway-node--accent { fill: #A9613B; }
+.gateway-node--dim { fill: rgba(105, 113, 107, 0.45); opacity: 0; animation: gateway-fade-in 0.9s ease forwards; }
+.gateway-label { font-family: var(--font-mono, monospace); font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; fill: #69716B; opacity: 0.55; transition: opacity 0.25s ease; }
+.gateway-node-group:hover .gateway-label, .gateway-node-group:hover .gateway-node { opacity: 1; }
+.gateway-node-group:hover .gateway-node { r: 7; }
+
+.gateway-status {
+  position: absolute; left: 0; bottom: 4px; display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono, monospace); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #91B3A5; opacity: 0; animation: gateway-fade-in 1s ease 1.6s forwards;
+}
+.gateway-status i { width: 5px; height: 5px; border-radius: 50%; background: #3E7C6A; box-shadow: 0 0 0 3px rgba(62, 124, 106, 0.18); }
+
+@keyframes gateway-fade-in { to { opacity: 1; } }
+@keyframes gateway-rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .gateway-link, .gateway-journey, .gateway-node-group, .gateway-node--dim, .gateway-status { animation: none; opacity: 1; }
+}
+@media (max-width: 1024px) {
+  .gateway { height: 280px; }
+  .gateway-svg { max-width: 420px; }
+  .gateway-status { left: 50%; transform: translateX(-50%); bottom: 0; }
+}
 
 /* --------------------------------------------------------------------- Boot */
 .boot { position: fixed; inset: 0; z-index: var(--z-boot); display: grid; place-items: center; background: rgba(8, 10, 12, 0.5); backdrop-filter: blur(5px); }
