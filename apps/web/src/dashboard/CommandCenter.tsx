@@ -9,7 +9,27 @@ import type {
   CredentialInfo, EmploymentInfo, FocusLevel, InstitutionNode, LayerState, ProgrammeNode, SkillNode, TraineeSignal,
 } from '../scenes/CommandCenterWorld';
 import { institutionPosition, regionPosition } from '../scenes/regionGeo';
+import { INDIA_OUTLINE, projectLonLat } from '../scene/india';
 import { commandCenterStore } from './commandCenterStore';
+
+// Fallback-only (WebGL unavailable): same real boundary projection the GLB uses, flattened to SVG,
+// with institution nodes mapped through the same x/-z projected-space mapping as institutionPosition().
+const FALLBACK_PROJECTION = (() => {
+  const pts = INDIA_OUTLINE.map(([lon, lat]) => projectLonLat(lon, lat));
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const w = maxX - minX || 1, h = maxY - minY || 1;
+  const scale = Math.min(84 / w, 84 / h);
+  const offX = 50 - (w * scale) / 2, offY = 50 - (h * scale) / 2;
+  // x/y already in projected (lon/lat-scaled) space, matching institutionPosition()'s x and -z.
+  const toSvg = (x: number, y: number): [number, number] => [offX + (x - minX) * scale, offY + (maxY - y) * scale];
+  const outline = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${toSvg(x, y).map((n) => n.toFixed(1)).join(',')}`).join(' ') + ' Z';
+  return { toSvg };
+})();
+const FALLBACK_OUTLINE = (() => {
+  const pts = INDIA_OUTLINE.map(([lon, lat]) => projectLonLat(lon, lat));
+  return pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${FALLBACK_PROJECTION.toSvg(x, y).map((n) => n.toFixed(1)).join(',')}`).join(' ') + ' Z';
+})();
 
 const CommandCenterWorld = lazy(() => import('../scenes/CommandCenterWorld'));
 
@@ -435,14 +455,6 @@ export function CommandCenter({ persona, onNavigate, embedded = false }: HomePro
   return (
     <div className={`cc-root ${embedded ? 'cc-root--embedded' : 'cc-root--full'}`}>
       <div className="cc-stage">
-        {/* Static India heritage map — sits behind the transparent WebGL canvas and the DOM fallback.
-            The image's own black background becomes transparent via mix-blend-mode:screen against
-            the dark cc-root, so only the ivory terrain and teal nodes are visible.
-            Subtle CSS scale transitions mirror the camera drill-down without touching WebGL geometry. */}
-        <div className={`cc-india-visual${level === 'region' || level === 'institution' ? ' cc-india-visual--region' : level !== 'national' ? ' cc-india-visual--deep' : ''}`} aria-hidden="true">
-          <img src="/assets/ncct-india-network.png" alt="" width="1050" height="1050" loading="eager" decoding="async" />
-        </div>
-
         {tier.webgl ? (
           <Suspense fallback={<div className="cc-loading">Initialising the national network…</div>}>
             <CommandCenterWorld
@@ -476,13 +488,14 @@ export function CommandCenter({ persona, onNavigate, embedded = false }: HomePro
              Interaction is limited but the national network remains legible. */
           <div className="cc-fallback" role="img" aria-label="NCCT national institution network — static map">
             <svg viewBox="0 0 100 100" fill="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-              {nodes.slice(0, 18).map((n, i) => {
-                const a = (i / Math.max(1, nodes.length)) * Math.PI * 2;
-                const cx = 50 + Math.cos(a) * 26; const cy = 50 + Math.sin(a) * 30;
+              <path d={FALLBACK_OUTLINE} fill="rgba(145, 179, 165, 0.08)" stroke="rgba(145, 179, 165, 0.35)" strokeWidth="0.4" />
+              {nodes.map((n) => {
+                const pos = institutionPosition(n.state, n.id.length + n.id.charCodeAt(0));
+                const [cx, cy] = FALLBACK_PROJECTION.toSvg(pos.x, -pos.z);
                 return (
-                  <g key={n.id} onClick={() => onSelect(n, new THREE.Vector3(0, 0, 0))} style={{ cursor: 'pointer' }}>
-                    <circle cx={cx} cy={cy} r="1.8" fill={n.type === 'RICM' ? '#3E7C6A' : '#A9613B'} opacity="0.9" />
-                    <circle cx={cx} cy={cy} r="3.5" fill={n.type === 'RICM' ? '#3E7C6A' : '#A9613B'} opacity="0.18" />
+                  <g key={n.id} onClick={() => onSelect(n, pos)} style={{ cursor: 'pointer' }}>
+                    <circle cx={cx} cy={cy} r="1.3" fill={n.type === 'RICM' ? '#3E7C6A' : '#A9613B'} opacity="0.9" />
+                    <circle cx={cx} cy={cy} r="2.6" fill={n.type === 'RICM' ? '#3E7C6A' : '#A9613B'} opacity="0.18" />
                   </g>
                 );
               })}
