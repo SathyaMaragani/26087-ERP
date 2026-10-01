@@ -6,7 +6,6 @@ import { EASE } from '../motion/primitives';
 import { Wordmark } from '../ui/Wordmark';
 import { HeroHead } from './HeroHead';
 import DyeWhorl from '../ui/dye-whorl';
-import { NetworkSection } from '../scenes/NetworkSection';
 
 // DyeWhorl reads its ink ramp from these tokens on <html>; they are hex on purpose (it parses hex).
 const INK_TOKENS: Record<string, string> = { '--background': '#03050b', '--foreground': '#cfe0ff', '--ns-muted': '#3f56b8', '--border': '#101a47', '--ns-accent': '#6fd3db' };
@@ -61,8 +60,6 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
       </main>
       </DyeWhorl>
       </motion.div>
-
-      <NetworkSection />
     </div>
   );
 }
