@@ -50,12 +50,12 @@ function Cluster({ level, index, active, hoverId, reduced, onHover, onPick }: { 
     const lg = new THREE.BufferGeometry();
     const lp = new THREE.BufferAttribute(new Float32Array(n * 6), 3); lp.setUsage(THREE.DynamicDrawUsage);
     lg.setAttribute('position', lp);
-    const lm = new THREE.LineBasicMaterial({ color: '#7fd6cc', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+    const lm = new THREE.LineBasicMaterial({ color: '#91B3A5', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     const P = Math.min(n, 28);
     const pg = new THREE.BufferGeometry();
     const pp = new THREE.BufferAttribute(new Float32Array(P * 3), 3); pp.setUsage(THREE.DynamicDrawUsage);
     pg.setAttribute('position', pp);
-    const pm = new THREE.PointsMaterial({ color: '#cfd6ff', size: Math.max(0.02, level.radius * 0.06), map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true });
+    const pm = new THREE.PointsMaterial({ color: '#D4A04D', size: Math.max(0.02, level.radius * 0.06), map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true });
     return { lineGeo: lg, lineMat: lm, packetGeo: pg, packetMat: pm, ringGeo: new THREE.RingGeometry(level.radius * 0.985, level.radius, 128) };
   }, [level.nodes.length, level.radius, tex]);
   useEffect(() => () => { lineGeo.dispose(); lineMat.dispose(); packetGeo.dispose(); packetMat.dispose(); ringGeo.dispose(); }, [lineGeo, lineMat, packetGeo, packetMat, ringGeo]);
@@ -177,7 +177,7 @@ export default function ExplorerScene(props: Props) {
   const { levels, ...rest } = props;
   return (
     <Canvas dpr={[1, 2]} camera={{ fov: 46, near: 0.01, far: 200, position: [0, 3, 30] }} gl={{ antialias: true, alpha: true }} aria-hidden onPointerMissed={() => props.onHover(null)}>
-      <hemisphereLight args={['#9db0ff', '#0a1020', 1]} />
+      <hemisphereLight args={['#F5F1E8', '#18201D', 1]} />
       <directionalLight position={[-6, 10, 5]} intensity={2} color="#f0ede6" />
       <ExplorerCamera levels={levels} active={props.active} reduced={props.reduced} />
       {levels.map((lv, i) => <Cluster key={lv.key} level={lv} index={i} {...rest} />)}
