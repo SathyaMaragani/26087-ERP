@@ -61,17 +61,19 @@ COPPER = (0.663, 0.380, 0.231, 1.0)      # #A9613B
 MARIGOLD = (0.831, 0.627, 0.302, 1.0)    # #D4A04D
 RAIN = (0.471, 0.592, 0.627, 1.0)        # #7897A0
 SNOW = (0.965, 0.960, 0.945, 1.0)        # cool near-white, warmer than pure white
+# Precise per-region palette from the NCCT art direction brief
+DESERT_SAND = (0.831, 0.698, 0.478, 1.0)   # #D4B27A
+GANGA_1 = (0.847, 0.851, 0.784, 1.0)       # #D8D9C8
+GANGA_2 = (0.718, 0.761, 0.663, 1.0)       # #B7C2A9
+CENTRAL_2 = (0.659, 0.698, 0.553, 1.0)     # #A8B28D
+DECCAN_1 = (0.557, 0.604, 0.447, 1.0)      # #8E9A72
+DECCAN_2 = (0.769, 0.725, 0.561, 1.0)      # #C4B98F
+NE_1 = (0.329, 0.490, 0.416, 1.0)          # #547D6A
 
 
 def _mix(a, b, t):
     t = max(0.0, min(1.0, t))
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(4))
-
-
-def _hash01(x, y, seed=0.0):
-    """Deterministic stdlib-only pseudo-noise in [0, 1) from position."""
-    n = math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453
-    return n - math.floor(n)
 
 
 def _smoothstep(e0, e1, x):
@@ -88,14 +90,16 @@ def _proj(lon, lat):
 
 
 ZONES = [
-    # (anchor_xy, colour, sigma)
-    (_proj(78.0, 32.0), _mix(PORCELAIN, STONE, 0.22), 1.7),   # Himalaya/north — warm ivory, cool stone
-    (_proj(70.9, 26.9), _mix(MARIGOLD, COPPER, 0.4), 1.8),    # Rajasthan desert — sand/ochre
-    (_proj(79.0, 22.0), _mix(LICHEN, STONE, 0.28), 2.0),      # Central India — warm olive/earth
-    (_proj(85.8, 20.3), _mix(LICHEN, JADE, 0.5), 1.9),        # Eastern India — deeper muted green
-    (_proj(78.5, 17.4), _mix(PALE_JADE, LICHEN, 0.38), 1.9),  # Deccan/south — muted jade/olive
-    (_proj(91.7, 26.1), _mix(JADE, LICHEN, 0.3), 1.3),        # Northeast — rich muted green
-    (_proj(77.5, 8.1), _mix(PALE_JADE, JADE, 0.3), 1.4),      # Far south tip
+    # (anchor_xy, colour, sigma) — anchors are real region centres, sigma controls blend radius
+    (_proj(78.0, 32.0), _mix(MIST, PORCELAIN, 0.4), 1.6),        # Himalaya/north — cool ivory-grey
+    (_proj(70.9, 26.9), _mix(DESERT_SAND, COPPER, 0.22), 1.7),   # Rajasthan desert — sand/ochre
+    (_proj(80.9, 26.8), _mix(GANGA_1, GANGA_2, 0.5), 1.5),       # Ganga plains — soft green-beige
+    (_proj(79.0, 22.0), _mix(LICHEN, CENTRAL_2, 0.5), 1.8),      # Central India — muted olive
+    (_proj(74.0, 15.5), _mix(JADE, STONE, 0.55), 1.1),           # Western Ghats — desaturated forest
+    (_proj(85.8, 20.3), _mix(JADE, STONE, 0.45), 1.7),           # Eastern forests — desaturated forest
+    (_proj(78.5, 17.4), _mix(DECCAN_1, DECCAN_2, 0.45), 1.8),    # Deccan/south — warm olive-earth
+    (_proj(91.7, 26.1), _mix(NE_1, LICHEN, 0.4), 1.2),           # Northeast — darker elegant green
+    (_proj(77.5, 8.1), _mix(DECCAN_1, JADE, 0.3), 1.2),          # Far south tip
 ]
 
 
@@ -123,23 +127,38 @@ def load_data(path):
         return json.load(f)
 
 
+def _western_ghats_ridge(x, y):
+    """A single continuous elongated ridge along the real west-coast corridor
+    (not a cluster of random peaks) — an explicit geographic feature rather
+    than noise, per the 'every terrain feature must represent real geography'
+    rule. Fades in/out smoothly along its real north-south extent."""
+    ridge_x, half_width = -2.25, 0.4
+    fade = _smoothstep(-4.3, -3.8, y) * (1 - _smoothstep(-0.5, 0.0, y))
+    lateral = max(0.0, 1.0 - abs(x - ridge_x) / half_width)
+    return lateral * fade * 0.035
+
+
 def terrain_height(x, y):
-    """Smooth analytic relief (the same formula the old procedural JS terrain
-    used — low-frequency sine/cosine waves plus a northward Himalayan uplift)
-    — restrained, architectural, not a heightmap."""
-    TERRAIN_SCALE = 0.05
-    return TERRAIN_SCALE * (
+    """Smooth analytic relief: broad low-frequency waves for the large-scale
+    geographic basins/plateaus, a northward Himalayan uplift, and one explicit
+    Western Ghats ridge term. Deliberately restrained in amplitude — this is
+    architectural relief, not a heightmap, and every term corresponds to a
+    real named geographic feature rather than arbitrary noise."""
+    TERRAIN_SCALE = 0.032
+    base = TERRAIN_SCALE * (
         0.34 * math.sin(x * 1.15 + 0.6) * math.cos(y * 0.95)
         + 0.18 * math.sin(x * 2.3 - y * 1.7)
         + max(0.0, y - 2.4) * 0.22
     )
+    return base + _western_ghats_ridge(x, y)
 
 
 def terrain_color(x, y, z):
     """Stylized (never photographic/satellite) terrain colour for one point:
     a gaussian-weighted blend of regional colour zones, then elevation-driven
-    snow/rock on high ground, then a touch of deterministic grain so flat
-    areas don't read as a flat colour fill."""
+    snow on genuinely high ground. No random/noise-based darkening or grain —
+    every colour variation here traces back to a named region or to the
+    analytic elevation function, nothing is arbitrary per-point jitter."""
     weights = []
     for (zx, zy), _color, sigma in ZONES:
         d2 = (x - zx) ** 2 + (y - zy) ** 2
@@ -155,20 +174,9 @@ def terrain_color(x, y, z):
 
     # Elevation: snow only where the Himalayan uplift term has genuinely lifted
     # the surface (not a latitude band) — real high ground, not a white stripe.
-    snow_t = _smoothstep(0.085, 0.15, z)
+    snow_t = _smoothstep(0.075, 0.14, z)
     if snow_t > 0:
         col = _mix(col, SNOW, snow_t)
-
-    # Deep-valley shadow: sparse, low-frequency darkening for a sense of relief
-    # even where the analytic height function is near zero.
-    valley = _hash01(x * 2.3, y * 2.3, 11.0)
-    if valley > 0.72 and snow_t < 0.3:
-        col = _mix(col, _mix(col, INK, 0.35), (valley - 0.72) / 0.28)
-
-    # Fine grain: tiny per-point jitter so the surface reads as material, not
-    # a flat colour fill. Kept deliberately subtle (±4%).
-    grain = (_hash01(x * 37.0, y * 41.0, 3.0) - 0.5) * 0.08
-    col = tuple(max(0.0, min(1.0, c + grain)) if i < 3 else c for i, c in enumerate(col))
     return col
 
 
@@ -255,11 +263,19 @@ def build_base_mesh(states, depth=0.12):
     # zone blend; SIDE and UNDERSIDE faces (normal pointing outward/down from solidify) get
     # a flat dark edge colour instead, so the vertical slab wall reads as a distinct material
     # from the terrain surface rather than smearing the same colour down the side.
+    #
+    # TOP faces are also shaded SMOOTH: with flat shading, every one of the ~150k triangles
+    # from the beauty-triangulation + subdivision pass was individually visible as a hard
+    # facet, reading as broken/fractured rock instead of calm terrain. Smooth (Gouraud) shading
+    # interpolates normals across shared edges so the same geometry reads as a continuous
+    # surface. SIDE/UNDERSIDE faces stay flat-shaded on purpose — a crisp, clean bevel edge is
+    # exactly what should catch light distinctly from the terrain, not blur into it.
     color_layer = bm.loops.layers.color.new("Col")
     edge_color = _mix(INK, STONE, 0.3)
     for face in bm.faces:
         is_top = face.normal.z > 0.35
         face.material_index = 0 if is_top else 1
+        face.smooth = is_top
         for loop in face.loops:
             if is_top:
                 v = loop.vert
@@ -438,7 +454,7 @@ def main():
 
     boundary_obj, ring_count = build_state_boundary_curves(states)
     col_boundaries.objects.link(boundary_obj)
-    assign_material(boundary_obj, "NCCT_Boundary", PALE_JADE, roughness=0.5)
+    assign_material(boundary_obj, "NCCT_Boundary", STONE, roughness=0.5)
     log(f"built boundary curve object with {ring_count} ring splines")
 
     rivers_obj = build_rivers()

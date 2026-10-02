@@ -42,6 +42,11 @@ interface HistEntry {
 }
 
 const DEFAULT_LAYERS: LayerState = { institutions: true, training: true, learning: false, credentials: false, employment: false };
+// Slightly south of India's true geometric centre: with this camera's near-top-down angle,
+// screen-"up" roughly tracks world-north, so nudging the orbit target south shifts the whole
+// landmass a bit higher on screen — breathing room between the map and the bottom command
+// controls, without shrinking India or touching the drill-down camera logic.
+const NATIONAL_FOCUS = new THREE.Vector3(0, 0, 0.6);
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
@@ -150,7 +155,7 @@ export function CommandCenter({ persona, onNavigate, embedded = false }: HomePro
 
   const [pulseActive, setPulseActive] = useState(false);
   const [pulseStep, setPulseStep] = useState(-1);
-  const focus = useRef(new THREE.Vector3(0, 0, 0));
+  const focus = useRef(NATIONAL_FOCUS.clone());
   const [focusDistance, setFocusDistance] = useState(18.5);
   const pulseTimer = useRef<number[]>([]);
   // NATION → REGION → INSTITUTION camera history, so ESC / breadcrumb clicks step back through
@@ -177,7 +182,7 @@ export function CommandCenter({ persona, onNavigate, embedded = false }: HomePro
     setSelectedTrainee(null);
     setLevel('national');
     history.current = [];
-    focus.current.set(0, 0, 0);
+    focus.current.copy(NATIONAL_FOCUS);
     setFocusDistance(19.5);
     const stepMs = Math.max(220, Math.min(600, 5200 / nodes.length));
     nodes.forEach((_, i) => {
@@ -209,7 +214,7 @@ export function CommandCenter({ persona, onNavigate, embedded = false }: HomePro
     setSelectedSkill(null);
     setVerifyState('idle');
     setLevel('national');
-    focus.current.set(0, 0, 0);
+    focus.current.copy(NATIONAL_FOCUS);
     setFocusDistance(18.5);
   };
 

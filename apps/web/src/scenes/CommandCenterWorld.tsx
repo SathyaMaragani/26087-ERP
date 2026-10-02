@@ -515,10 +515,14 @@ function Scene({
   return (
     <>
       <CameraRig focus={focus} focusDistance={focusDistance} />
-      <ambientLight intensity={0.45} color="#91B3A5" />
-      <directionalLight position={[4, 7, 3]} intensity={1.6} color="#FBF9F4" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0015} />
-      <directionalLight position={[-5, 3.5, -3]} intensity={0.4} color="#3E7C6A" />
-      <directionalLight position={[-2, 2, 6]} intensity={0.22} color="#D4A04D" />
+      {/* Premium studio setup: neutral ambient base (no hue tint), a large soft warm key for
+          terrain/colour readability, a cool jade fill opposite it for depth without darkening,
+          and a restrained warm rim from behind the subject (relative to the camera) to catch
+          the silhouette edge — not a second key light. */}
+      <ambientLight intensity={0.32} color="#FBF9F4" />
+      <directionalLight position={[4, 7, 3]} intensity={1.75} color="#FBF9F4" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0015} />
+      <directionalLight position={[-5, 3, -4]} intensity={0.3} color="#3E7C6A" />
+      <directionalLight position={[-1, 2, -7]} intensity={0.28} color="#D4A04D" />
       <group ref={group}>
         <Suspense fallback={null}>
           <IndiaModel />
