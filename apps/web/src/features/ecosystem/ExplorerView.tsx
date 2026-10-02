@@ -32,8 +32,12 @@ function shell(n: number, radius: number, seed: number): Array<[number, number, 
   return out;
 }
 
-const TYPE_COLOR: Record<string, string> = { NCCT_HQ: '#7f8fff', VAMNICOM: '#7f8fff', RICM: '#6fd3db', ICM: '#c9a25a' };
-const PROG_COLOR: Record<string, string> = { ONGOING: '#6fd3db', UPCOMING: '#c9a25a', COMPLETED: '#84b9a6', CANCELLED: '#e5533d' };
+// Monsoon Porcelain, not the old Atlas dark-theme indigo/cyan — this scene now renders on a
+// porcelain page, so its node colours need to belong to the same brand language as everything
+// around it: jade (apex/active), pale jade (standard institution), copper (secondary type),
+// marigold (pending), vermilion (cancelled).
+const TYPE_COLOR: Record<string, string> = { NCCT_HQ: '#3E7C6A', VAMNICOM: '#3E7C6A', RICM: '#91B3A5', ICM: '#A9613B' };
+const PROG_COLOR: Record<string, string> = { ONGOING: '#3E7C6A', UPCOMING: '#D4A04D', COMPLETED: '#91B3A5', CANCELLED: '#C95748' };
 
 export function ExplorerView({ persona, onOpenPeople }: { persona: UserPersona; onOpenPeople: () => void }) {
   const reduce = useReducedMotion();
@@ -66,26 +70,26 @@ export function ExplorerView({ persona, onOpenPeople }: { persona: UserPersona; 
 
   const levels = useMemo<ExLevel[]>(() => {
     const out: ExLevel[] = [];
-    const n0: ExNode[] = orgNodes.map((o) => ({ id: o.raw.id, label: o.raw.name, color: TYPE_COLOR[o.raw.institutionType] ?? '#6fd3db', size: RADII[0] * (o.raw.institutionType === 'NCCT_HQ' ? 0.11 : 0.07), local: o.local }));
+    const n0: ExNode[] = orgNodes.map((o) => ({ id: o.raw.id, label: o.raw.name, color: TYPE_COLOR[o.raw.institutionType] ?? '#91B3A5', size: RADII[0] * (o.raw.institutionType === 'NCCT_HQ' ? 0.11 : 0.07), local: o.local }));
     out.push({ key: 'L0', center: [0, 0, 0], radius: RADII[0], camDist: DIST[0], nodes: n0, selectedId: path[0]?.id ?? null, open: true });
     let center: [number, number, number] = [0, 0, 0];
     if (path.length >= 1) {
       const sel = n0.find((n) => n.id === path[0].id);
       center = [center[0] + (sel?.local[0] ?? 0), center[1] + (sel?.local[1] ?? 0), center[2] + (sel?.local[2] ?? 0)];
       const pos = shell(progList.length, RADII[1], 5);
-      const nodes: ExNode[] = progList.map((p, i) => ({ id: p.id, label: p.title, color: PROG_COLOR[p.status] ?? '#7f8fff', size: RADII[1] * 0.075, local: pos[i] }));
+      const nodes: ExNode[] = progList.map((p, i) => ({ id: p.id, label: p.title, color: PROG_COLOR[p.status] ?? '#91B3A5', size: RADII[1] * 0.075, local: pos[i] }));
       out.push({ key: `L1-${path[0].id}`, center, radius: RADII[1], camDist: DIST[1], nodes, selectedId: path[1]?.id ?? null, open: true });
       if (path.length >= 2) {
         const s1 = nodes.find((n) => n.id === path[1].id);
         center = [center[0] + (s1?.local[0] ?? 0), center[1] + (s1?.local[1] ?? 0), center[2] + (s1?.local[2] ?? 0)];
         const tpos = shell(regList.length, RADII[2], 7);
-        const tn: ExNode[] = regList.map((r, i) => ({ id: r.traineeId ?? r.trainee.id, label: `${r.trainee.user?.firstName ?? ''} ${r.trainee.user?.lastName ?? ''}`.trim() || r.trainee.traineeCode, color: r.status === 'ENROLLED' ? '#6fd3db' : r.status === 'APPROVED' ? '#84b9a6' : r.status === 'REJECTED' ? '#e5533d' : '#c9a25a', size: RADII[2] * 0.08, local: tpos[i] }));
+        const tn: ExNode[] = regList.map((r, i) => ({ id: r.traineeId ?? r.trainee.id, label: `${r.trainee.user?.firstName ?? ''} ${r.trainee.user?.lastName ?? ''}`.trim() || r.trainee.traineeCode, color: r.status === 'ENROLLED' ? '#3E7C6A' : r.status === 'APPROVED' ? '#91B3A5' : r.status === 'REJECTED' ? '#C95748' : '#D4A04D', size: RADII[2] * 0.08, local: tpos[i] }));
         out.push({ key: `L2-${path[1].id}`, center, radius: RADII[2], camDist: DIST[2], nodes: tn, selectedId: path[2]?.id ?? null, open: true });
         if (path.length >= 3) {
           const s2 = tn.find((n) => n.id === path[2].id);
           center = [center[0] + (s2?.local[0] ?? 0), center[1] + (s2?.local[1] ?? 0), center[2] + (s2?.local[2] ?? 0)];
           const skills = profile.data?.skills ?? [], certs = profile.data?.certificates ?? [];
-          const items = [...skills.map((s: Raw) => ({ id: `s-${s.id}`, label: s.skill?.name, color: '#6fd3db' })), ...certs.map((c: Raw) => ({ id: `c-${c.id}`, label: c.title, color: '#7f8fff' }))];
+          const items = [...skills.map((s: Raw) => ({ id: `s-${s.id}`, label: s.skill?.name, color: '#3E7C6A' })), ...certs.map((c: Raw) => ({ id: `c-${c.id}`, label: c.title, color: '#A9613B' }))];
           const ipos = shell(items.length, RADII[3], 9);
           out.push({ key: `L3-${path[2].id}`, center, radius: RADII[3], camDist: DIST[3], nodes: items.map((it, i) => ({ ...it, size: RADII[3] * 0.09, local: ipos[i] })), selectedId: null, open: true });
         }

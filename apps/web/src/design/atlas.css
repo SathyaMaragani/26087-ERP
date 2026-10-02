@@ -45,7 +45,7 @@ kbd { font-family: var(--font-data); border-radius: 2px; background: transparent
 input, select, textarea { border-radius: var(--radius-sm); background: var(--ink-1); }
 input:focus, select:focus, textarea:focus { border-color: var(--live); box-shadow: 0 0 0 3px var(--live-soft); }
 .pill, .badge { border-radius: 2px; font-family: var(--font-data); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; padding: 0.18rem 0.5rem; }
-.pill-copper, .pill-indigo { color: var(--net-bright); background: var(--net-soft); border-color: rgba(78, 99, 255, 0.4); }
+.pill-copper, .pill-indigo { color: var(--net-bright); background: var(--net-soft); border-color: rgba(62, 124, 106, 0.4); }
 .icon-btn-lg, .palette-trigger, .net-toggle, .user-btn { border-radius: var(--radius-sm); }
 
 /* ---------- Surfaces become open editorial columns ---------- */
@@ -91,7 +91,7 @@ td { border-bottom: 1px solid var(--rule); }
 .shell[data-module='timetable'], .shell[data-module='lms'], .shell[data-module='career'] { --mod: var(--live); --mod-soft: var(--live-soft); }
 .shell[data-module='hostel-logistics'], .shell[data-module='skills'], .shell[data-module='employment'] { --mod: var(--ok); --mod-soft: var(--ok-soft); }
 .shell[data-module='analytics'], .shell[data-module='trainees'] { --mod: var(--paper); --mod-soft: rgba(240, 237, 230, 0.1); }
-.shell[data-module='home'] .page-header, .shell[data-module='ecosystem'] .page-header { border-bottom-color: rgba(78, 99, 255, 0.5); }
+.shell[data-module='home'] .page-header, .shell[data-module='ecosystem'] .page-header { border-bottom-color: rgba(62, 124, 106, 0.5); }
 .page-header::after { content: ''; position: absolute; right: 0; bottom: 14px; width: min(340px, 34vw); height: 64px; opacity: 0.55; pointer-events: none; background-repeat: no-repeat; background-position: right bottom; background-size: contain; }
 .shell[data-module='timetable'] .page-header::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 340 64' fill='none' stroke='%236fd3db'%3E%3Cpath d='M0 48H340' stroke-opacity='.5'/%3E%3Cg stroke-opacity='.55'%3E%3Cpath d='M10 48v-8M40 48v-14M70 48v-8M100 48v-8M130 48v-14M160 48v-8M190 48v-8M220 48v-14M250 48v-8M280 48v-8M310 48v-14'/%3E%3C/g%3E%3Cpath d='M212 6V60' stroke-width='1.5'/%3E%3Ccircle cx='212' cy='6' r='3' fill='%236fd3db'/%3E%3C/svg%3E"); }
 .shell[data-module='attendance'] .page-header::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 340 64' fill='none' stroke='%234e63ff'%3E%3Ccircle cx='300' cy='32' r='30' stroke-opacity='.6'/%3E%3Ccircle cx='300' cy='32' r='20' stroke-opacity='.4' stroke-dasharray='2 4'/%3E%3Cpath d='M0 32H268M300 2V62' stroke-opacity='.35'/%3E%3Crect x='290' y='22' width='20' height='20' stroke-opacity='.8'/%3E%3C/svg%3E"); }
@@ -149,7 +149,7 @@ td { border-bottom: 1px solid var(--rule); }
 .tab-underline { background: var(--mod); }
 .tab { font-family: var(--font-data); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
 .filter-chip { border-radius: 2px; font-family: var(--font-data); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; }
-.filter-chip.is-active { background: var(--net-soft); border-color: rgba(78, 99, 255, 0.6); color: var(--net-bright); }
+.filter-chip.is-active { background: var(--net-soft); border-color: rgba(62, 124, 106, 0.6); color: var(--net-bright); }
 
 /* ---------- Motion responsiveness ---------- */
 .btn:active:not(:disabled) { transform: translateY(1px); }
