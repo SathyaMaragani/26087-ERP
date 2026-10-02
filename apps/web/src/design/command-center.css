@@ -9,7 +9,7 @@
 .shell[data-module='home'] .shell-content:has(.cc-root--full) > .signal { display: none; }
 .shell[data-module='home'] .page:has(.cc-root--full) { height: 100%; }
 
-.cc-root { position: relative; width: 100%; overflow: hidden; background: #07100D; }
+.cc-root { position: relative; width: 100%; overflow: hidden; background: #07110F; }
 .cc-root--full { height: calc(100svh - var(--topbar-h)); }
 /* Embedded mode: a persona home's regional/centre lens — a fixed-height spatial
    band at the top of an otherwise normal, scrollable page, not the whole viewport. */
@@ -51,10 +51,17 @@
 .cc-metrics b { display: block; font-family: var(--font-sans); font-weight: 300; font-size: 1.7rem; letter-spacing: -0.03em; color: #F5F1E8; line-height: 1; }
 .cc-metrics small { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #91B3A5; }
 
-.cc-hud--bc { bottom: 26px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; }
-.cc-pulse-btn { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(145, 179, 165, 0.25); background: rgba(7, 16, 13, 0.75); backdrop-filter: blur(8px); font-family: var(--font-mono, monospace); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #91B3A5; transition: background 0.2s, border-color 0.2s, color 0.2s; }
-.cc-pulse-btn:hover:not(:disabled) { background: rgba(62, 124, 106, 0.12); border-color: rgba(62, 124, 106, 0.45); color: #F5F1E8; }
-.cc-pulse-btn:disabled { opacity: 0.4; cursor: default; }
+.cc-hud--bc { bottom: 34px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+/* Command-center control modules — thin border, restrained radius, dark translucent surface.
+   Deliberately NOT a pill: an oversized rounded button reads as generic web UI, not instrument
+   panel. A near-rectangular control with a small radius reads as a physical switch/module. */
+.cc-pulse-btn { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; border-radius: 4px; border: 1px solid rgba(145, 179, 165, 0.22); background: rgba(7, 17, 15, 0.82); font-family: var(--font-mono, monospace); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #91B3A5; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.cc-pulse-btn svg { opacity: 0.85; }
+.cc-pulse-btn:hover:not(:disabled) { background: rgba(62, 124, 106, 0.14); border-color: rgba(62, 124, 106, 0.5); color: #F5F1E8; }
+.cc-pulse-btn:hover:not(:disabled) svg { opacity: 1; }
+.cc-pulse-btn:active:not(:disabled) { background: rgba(62, 124, 106, 0.22); }
+.cc-pulse-btn[aria-pressed="true"] { background: rgba(62, 124, 106, 0.18); border-color: rgba(62, 124, 106, 0.55); color: #F5F1E8; }
+.cc-pulse-btn:disabled { opacity: 0.35; cursor: default; }
 
 .cc-hud--br { bottom: 24px; right: 28px; text-align: right; }
 .cc-layers { list-style: none; display: grid; gap: 6px; justify-items: end; }
@@ -95,6 +102,14 @@
 .cc-intel-bars li > button:hover { text-decoration-color: #3E7C6A; }
 .cc-intel-bars li b { grid-column: 2; font-family: var(--font-mono, monospace); font-size: 10.5px; color: #69716B; font-weight: 400; justify-self: end; margin-top: 4px; }
 .cc-intel-bars li i { grid-column: 1; height: 3px; background: #91B3A5; border-radius: 2px; margin-top: 4px; min-width: 2px; }
+
+/* Between ~900-1360px the bottom-left live metrics and the bottom-centre control row can
+   collide (the 5-metric row and the two command modules both need real horizontal space). */
+@media (max-width: 1360px) {
+  .cc-metrics { gap: 18px; }
+  .cc-metrics b { font-size: 1.4rem; }
+  .cc-pulse-btn { padding: 0 11px; font-size: 9.5px; gap: 5px; }
+}
 
 @media (max-width: 900px) {
   .cc-hud--tc { display: none; }
