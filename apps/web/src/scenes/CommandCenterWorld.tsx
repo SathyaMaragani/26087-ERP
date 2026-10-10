@@ -1,11 +1,9 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { mulberry32, projectLonLat, STATE_LONLAT, terrain } from '../scene/india';
-import { regionPosition } from './regionGeo';
+import { PROJ, STATES } from '../pages/indiaMap';
+import { institutionPosition as nodePosition, LAND_TOP, regionPosition } from './regionGeo';
 
 export interface InstitutionNode {
   id: string;
@@ -47,13 +45,6 @@ const COPPER = new THREE.Color('#A9613B');
 const MARIGOLD = new THREE.Color('#D4A04D');
 const RAIN = new THREE.Color('#7897A0');
 const INK = new THREE.Color('#18201D');
-
-function nodePosition(state: string | null, seed: number): THREE.Vector3 {
-  const ll = (state && STATE_LONLAT[state]) || STATE_LONLAT['Madhya Pradesh'];
-  const jitter = mulberry32(seed || 1);
-  const [x, y] = projectLonLat(ll[0] + (jitter() - 0.5) * 0.6, ll[1] + (jitter() - 0.5) * 0.6);
-  return new THREE.Vector3(x, terrain(x, y) + 0.06, -y);
-}
 
 
 /**
@@ -111,37 +102,65 @@ function CameraRig({ focus, focusDistance }: { focus: THREE.Vector3; focusDistan
   return null;
 }
 
-/* The India landmass is a genuine Blender-built GLB (public/models/ncct-india.glb) — a real
-   extruded/bevelled mesh derived from current administrative-boundary data (state borders
-   including Telangana/Ladakh/Odisha/Uttarakhand), not a procedural approximation or a flat
-   image. Built by scripts/blender-india/build_india.py using the SAME equirectangular
-   projection (LON0=82.5, LAT0=22.0, SCALE=0.3) as nodePosition()/regionPosition() below, so
-   institution markers land on the correct geography without any change to that logic. Export
-   used Blender's Y-up glTF convention (Blender Z→glTF Y, Blender Y→glTF -Z), which already
-   matches this file's `z = -y` convention — no coordinate remapping needed at runtime. */
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+/* The India landmass: real state borders (pages/indiaMap.ts, generated from the same boundary
+   data as the Blender build) extruded per state at runtime. Each state is triangulated on its
+   own by three's earcut, which is what the merged ~800-ring Blender GLB got wrong (smeared,
+   stretched faces). Same projection as regionGeo.ts, so markers land on the right state. */
+const LAND_DEPTH = 0.14;
+const LAND_BEVEL = 0.02; // top cap sits at LAND_DEPTH + LAND_BEVEL === LAND_TOP
+const STATE_GREENS = ['#4f7d4a', '#5b8752', '#46714a', '#628c58', '#557f50', '#4a7752'].map((c) => new THREE.Color(c));
+const SIDE = new THREE.MeshStandardMaterial({ color: '#4a3b2b', roughness: 0.9 });
 
-function IndiaModel() {
-  const gltf = useLoader(GLTFLoader, '/models/ncct-india.glb', (loader) => {
-    (loader as GLTFLoader).setDRACOLoader(dracoLoader);
-  });
-  const scene = useMemo(() => gltf.scene.clone(true), [gltf]);
-  useEffect(() => {
-    scene.traverse((obj) => {
-      if ((obj as THREE.Mesh).isMesh) {
-        const mesh = obj as THREE.Mesh;
-        mesh.receiveShadow = true;
-        mesh.castShadow = true;
-        // Defensive: the base mesh merges ~800 ring polygons from real GIS boundary data whose
-        // winding order isn't guaranteed consistent; render both sides so the landmass is never
-        // invisible from the default camera angle regardless of any remaining normal flips.
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        mats.forEach((m) => { if (m) (m as THREE.Material).side = THREE.DoubleSide; });
+/** "M1,2L3,4Z M5,6L7,8" (map px) -> polylines of projected [x, y]. */
+function parsePath(d: string): Array<Array<[number, number]>> {
+  return d.split('M').filter(Boolean).map((line) =>
+    line.replace('Z', '').split('L').map((pt) => {
+      const [px, py] = pt.split(',').map(Number);
+      return [(px - PROJ.pad) / PROJ.k + PROJ.minX, PROJ.maxY - (py - PROJ.pad) / PROJ.k];
+    }),
+  );
+}
+
+function IndiaLand() {
+  const { states, borders } = useMemo(() => {
+    const border: number[] = [];
+    const states = STATES.map(([name, d, outline], i) => {
+      for (const line of parsePath(outline)) {
+        for (let j = 1; j < line.length; j++) {
+          const [[ax, ay], [bx, by]] = [line[j - 1], line[j]];
+          border.push(ax, LAND_TOP + 0.006, -ay, bx, LAND_TOP + 0.006, -by);
+        }
       }
+      const rings = parsePath(d);
+      const shapes = rings.map((r) => new THREE.Shape(r.map(([x, y]) => new THREE.Vector2(x, y))));
+      const geometry = new THREE.ExtrudeGeometry(shapes, {
+        depth: LAND_DEPTH, bevelEnabled: true, bevelThickness: LAND_BEVEL, bevelSize: 0.006, bevelSegments: 2, curveSegments: 1,
+      });
+      // Shape XY -> world XZ (z = -y), extrusion up +Y. A hair of per-state lift stops
+      // neighbouring top caps z-fighting where independently simplified borders overlap.
+      geometry.rotateX(-Math.PI / 2);
+      geometry.translate(0, i * 0.0001, 0);
+      const top = new THREE.MeshStandardMaterial({ color: STATE_GREENS[i % STATE_GREENS.length], roughness: 0.85 });
+      return { name, geometry, materials: [top, SIDE] };
     });
-  }, [scene]);
-  return <primitive object={scene} />;
+    const borders = new THREE.BufferGeometry();
+    borders.setAttribute('position', new THREE.Float32BufferAttribute(border, 3));
+    return { states, borders };
+  }, []);
+
+  useEffect(() => () => {
+    states.forEach((s) => { s.geometry.dispose(); s.materials[0].dispose(); });
+    borders.dispose();
+  }, [states, borders]);
+
+  return (
+    <group>
+      {states.map((s) => <mesh key={s.name} geometry={s.geometry} material={s.materials} castShadow receiveShadow />)}
+      <lineSegments geometry={borders}>
+        <lineBasicMaterial color="#e8f0dc" transparent opacity={0.6} />
+      </lineSegments>
+    </group>
+  );
 }
 
 function InstitutionMarker({ node, active, selected, dim, pulse, onSelect }: { node: InstitutionNode; active: boolean; selected: boolean; dim: boolean; pulse: number; onSelect: (n: InstitutionNode, pos: THREE.Vector3) => void }) {
@@ -524,9 +543,7 @@ function Scene({
       <directionalLight position={[-5, 3, -4]} intensity={0.3} color="#3E7C6A" />
       <directionalLight position={[-1, 2, -7]} intensity={0.28} color="#D4A04D" />
       <group ref={group}>
-        <Suspense fallback={null}>
-          <IndiaModel />
-        </Suspense>
+        <IndiaLand />
         {level === 'national' && regions.map((r) => (
           <RegionMarker key={r.state} state={r.state} count={r.count} focused={false} onSelect={onSelectRegion} onHover={onHoverRegion} />
         ))}

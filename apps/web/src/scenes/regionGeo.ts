@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { mulberry32, projectLonLat, STATE_LONLAT, terrain } from '../scene/india';
+import { mulberry32, projectLonLat, STATE_LONLAT } from '../scene/india';
+
+/** Height of the extruded landmass's flat top (CommandCenterWorld's IndiaLand); markers sit on it. */
+export const LAND_TOP = 0.16;
 
 /**
  * A region's exact centroid — no per-node jitter, since this is the camera's travel anchor.
@@ -10,7 +13,7 @@ import { mulberry32, projectLonLat, STATE_LONLAT, terrain } from '../scene/india
 export function regionPosition(state: string): THREE.Vector3 {
   const ll = STATE_LONLAT[state] || STATE_LONLAT['Madhya Pradesh'];
   const [x, y] = projectLonLat(ll[0], ll[1]);
-  return new THREE.Vector3(x, terrain(x, y) + 0.02, -y);
+  return new THREE.Vector3(x, LAND_TOP + 0.02, -y);
 }
 
 /** The same per-institution jittered position CommandCenterWorld's InstitutionMarker computes —
@@ -20,5 +23,5 @@ export function institutionPosition(state: string | null, seed: number): THREE.V
   const ll = (state && STATE_LONLAT[state]) || STATE_LONLAT['Madhya Pradesh'];
   const jitter = mulberry32(seed || 1);
   const [x, y] = projectLonLat(ll[0] + (jitter() - 0.5) * 0.6, ll[1] + (jitter() - 0.5) * 0.6);
-  return new THREE.Vector3(x, terrain(x, y) + 0.06, -y);
+  return new THREE.Vector3(x, LAND_TOP + 0.06, -y);
 }

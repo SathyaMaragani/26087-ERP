@@ -253,36 +253,4 @@ td { border-bottom: 1px solid var(--rule); }
 @media (max-width: 1100px) { .hero-chips, .hero-vertical { display: none; } .ghost-word { opacity: 0.6; } }
 .scene-section--hero .depth-a { display: none; }
 
-/* ── Hero: a human presence in points of light ─────────────── */
-.landing { background: #03050b; }
-.hero-page { position: relative; height: 100svh; overflow: hidden; background: #03050b; }
-.hero-exit { position: relative; z-index: 2; }
-.hero-head { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
-.hero-bar { position: absolute; top: 0; left: 0; right: 0; height: 72px; padding: 0 var(--pad, clamp(20px, 3.4vw, 56px)); display: flex; align-items: center; justify-content: space-between; z-index: 2; pointer-events: none; }
-.hero-bar > * { pointer-events: auto; }
-.hero-copy { position: absolute; inset: 0; pointer-events: none; }
-.hero-copy > * { pointer-events: none; }
-.hero-copy .hero-ctas, .hero-copy .hero-ctas * { pointer-events: auto; }
-.hero-serif { position: absolute; left: var(--pad, clamp(20px, 3.4vw, 56px)); top: clamp(92px, 12vh, 130px); max-width: min(20ch, 34vw); font-family: 'Instrument Serif', serif; font-weight: 400; font-size: clamp(2.2rem, 4.2vw, 4.4rem); line-height: 1.02; letter-spacing: -0.015em; color: #f2f1ec; }
-.hero-serif em { display: block; font-style: italic; color: rgba(190, 200, 235, 0.55); }
-.hero-note { position: absolute; bottom: clamp(96px, 15vh, 150px); font-size: 14px; line-height: 1.55; color: rgba(225, 230, 245, 0.66); max-width: 34ch; text-shadow: 0 0 14px #03050b, 0 0 4px #03050b; }
-.hero-note--l { left: var(--pad, clamp(20px, 3.4vw, 56px)); }
-.hero-note--r { right: var(--pad, clamp(20px, 3.4vw, 56px)); text-align: right; }
-.hero-serif-sm { position: absolute; right: var(--pad, clamp(20px, 3.4vw, 56px)); bottom: clamp(24px, 4vh, 44px); text-align: right; font-family: 'Instrument Serif', serif; font-size: clamp(1.5rem, 2.3vw, 2.4rem); line-height: 1.05; color: rgba(190, 200, 235, 0.6); }
-.hero-serif-sm span { color: #f2f1ec; }
-.hero-ctas { position: absolute; left: var(--pad, clamp(20px, 3.4vw, 56px)); bottom: clamp(24px, 4vh, 44px); display: flex; gap: 12px; flex-wrap: wrap; }
-.hero-btn { display: inline-flex; align-items: center; gap: 12px; height: 46px; padding: 0 24px; border-radius: 999px; border: 1px solid rgba(240, 237, 230, 0.16); background: rgba(6, 10, 20, 0.5); backdrop-filter: blur(10px); color: #f2f1ec; font-size: 15px; font-weight: 500; transition: transform 0.25s var(--ease-out, ease-out), background 0.2s; }
-.hero-btn:hover { transform: translateY(-2px); background: rgba(20, 30, 60, 0.6); }
-.hero-btn--small { height: 40px; padding: 0 20px; font-size: 14px; }
-.hero-btn--solid { background: #f4f3ee; color: #05070d; border-color: transparent; }
-.hero-btn--solid:hover { background: #fff; }
-.hero-btn--solid i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0.6; }
-@media (max-width: 999px) { .hero-serif { max-width: 90vw; font-size: clamp(2rem, 9vw, 3rem); } .hero-note--r, .hero-serif-sm { display: none; } .hero-note { bottom: 110px; max-width: 90vw; } }
-
-/* DyeWhorl ships Tailwind utility classes; this project has none, so its structure is stated here. */
-[data-dye-whorl] { position: relative; isolation: isolate; width: 100%; height: 100%; overflow: hidden; touch-action: none; background: var(--background, #03050b); }
-[data-dye-whorl] > canvas { position: absolute; inset: 0; display: block; }
-[data-dye-whorl] > div { position: relative; z-index: 1; width: 100%; height: 100%; }
-.hero-page .hero-head { position: absolute; inset: 0; }
-.hero-serif, .hero-serif-sm { text-shadow: 0 0 24px rgba(3, 5, 11, 0.85); }
 

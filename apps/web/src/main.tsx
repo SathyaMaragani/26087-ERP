@@ -8,6 +8,7 @@ import './design/features.css'
 import './design/atlas.css'
 import './design/dashboard.css'
 import './design/command-center.css'
+import './design/landing.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
